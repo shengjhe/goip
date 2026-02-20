@@ -13,7 +13,7 @@
 
 ## 技術棧
 
-- **語言**: Go 1.23+
+- **語言**: Go 1.26+
 - **Web 框架**: Gin
 - **快取**: Redis 7+
 - **資料庫**: MaxMind GeoLite2
@@ -25,7 +25,7 @@
 ### 前置需求
 
 - Docker & Docker Compose（推薦）
-- 或 Go 1.23+ & Redis 7.0+
+- 或 Go 1.26+ & Redis 7.0+
 - MaxMind GeoLite2 資料庫
 
 ### 安裝
