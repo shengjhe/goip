@@ -357,6 +357,19 @@ make docker-goip-down   # 停止 GoIP
 make full-deploy        # 建置 + 啟動所有服務
 ```
 
+## CI/CD
+
+專案使用 GitHub Actions 進行自動化建置和測試：
+
+- **觸發條件**: Push 到 `main` 或 `develop` 分支，或建立 Pull Request
+- **執行項目**:
+  - 單元測試（包含 race detector）
+  - 程式碼品質檢查（golangci-lint）
+  - Docker 映像建置驗證
+  - 測試覆蓋率報告
+
+詳見 [.github/workflows/build.yml](.github/workflows/build.yml)
+
 ## 授權
 
 MIT License
