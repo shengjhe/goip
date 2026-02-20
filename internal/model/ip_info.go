@@ -7,6 +7,8 @@ type IPInfo struct {
 	IP          string        `json:"ip"`
 	Country     CountryInfo   `json:"country"`
 	Continent   ContinentInfo `json:"continent"`
+	City        *CityInfo     `json:"city,omitempty"`
+	Location    *LocationInfo `json:"location,omitempty"`
 	QueryTimeMs int64         `json:"query_time_ms"`
 	CachedAt    *time.Time    `json:"cached_at,omitempty"`
 }
@@ -22,6 +24,20 @@ type CountryInfo struct {
 type ContinentInfo struct {
 	Code string `json:"code"`
 	Name string `json:"name"`
+}
+
+// CityInfo 城市資訊
+type CityInfo struct {
+	Name       string `json:"name,omitempty"`
+	NameZh     string `json:"name_zh,omitempty"`
+	PostalCode string `json:"postal_code,omitempty"`
+}
+
+// LocationInfo 地理位置資訊
+type LocationInfo struct {
+	Latitude  float64 `json:"latitude,omitempty"`
+	Longitude float64 `json:"longitude,omitempty"`
+	TimeZone  string  `json:"time_zone,omitempty"`
 }
 
 // BatchResult 批次查詢結果

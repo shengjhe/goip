@@ -5,7 +5,8 @@
 ## 特色
 
 - 🚀 **高效能**: Redis 分散式快取 + 本地快取雙層架構
-- 🌍 **準確資料**: 基於 MaxMind GeoLite2 資料庫
+- 🌍 **準確資料**: 基於 MaxMind GeoLite2 City 資料庫
+- 🏙️ **詳細資訊**: 支援國家、城市、郵遞區號、經緯度、時區等完整地理資訊
 - 🔒 **限流保護**: Redis 實現的分散式限流
 - 📊 **批次查詢**: 支援批次 IP 查詢，使用 Pipeline 優化
 - 🐳 **容器化**: Docker Compose 一鍵部署
@@ -16,7 +17,7 @@
 - **語言**: Go 1.26+
 - **Web 框架**: Gin
 - **快取**: Redis 7+
-- **資料庫**: MaxMind GeoLite2
+- **資料庫**: MaxMind GeoLite2 City
 - **日誌**: Zerolog
 - **配置**: Viper
 
@@ -112,25 +113,37 @@ GET /api/v1/ip/{ip}
 
 **範例請求:**
 ```bash
-curl http://localhost:8080/api/v1/ip/8.8.8.8
+curl http://localhost:8080/api/v1/ip/140.82.121.3
 ```
 
 **範例回應:**
 ```json
 {
-  "ip": "8.8.8.8",
+  "ip": "140.82.121.3",
   "country": {
-    "iso_code": "US",
-    "name": "United States",
-    "name_zh": "美国"
+    "iso_code": "DE",
+    "name": "Germany",
+    "name_zh": "德国"
   },
   "continent": {
-    "code": "NA",
-    "name": "North America"
+    "code": "EU",
+    "name": "Europe"
+  },
+  "city": {
+    "name": "Frankfurt am Main",
+    "name_zh": "法兰克福",
+    "postal_code": "60313"
+  },
+  "location": {
+    "latitude": 50.1169,
+    "longitude": 8.6837,
+    "time_zone": "Europe/Berlin"
   },
   "query_time_ms": 1
 }
 ```
+
+**注意:** `city` 和 `location` 為可選欄位，某些 IP（如 CDN、Anycast IP）可能不包含這些資訊。
 
 ### 批次查詢
 
@@ -143,13 +156,36 @@ Content-Type: application/json
 ```bash
 curl -X POST http://localhost:8080/api/v1/ip/batch \
   -H "Content-Type: application/json" \
-  -d '{"ips": ["8.8.8.8", "1.1.1.1", "140.112.1.1"]}'
+  -d '{"ips": ["140.82.121.3", "8.8.8.8", "140.112.1.1"]}'
 ```
 
 **範例回應:**
 ```json
 {
   "results": [
+    {
+      "ip": "140.82.121.3",
+      "country": {
+        "iso_code": "DE",
+        "name": "Germany",
+        "name_zh": "德国"
+      },
+      "continent": {
+        "code": "EU",
+        "name": "Europe"
+      },
+      "city": {
+        "name": "Frankfurt am Main",
+        "name_zh": "法兰克福",
+        "postal_code": "60313"
+      },
+      "location": {
+        "latitude": 50.1169,
+        "longitude": 8.6837,
+        "time_zone": "Europe/Berlin"
+      },
+      "query_time_ms": 1
+    },
     {
       "ip": "8.8.8.8",
       "country": {
@@ -161,7 +197,7 @@ curl -X POST http://localhost:8080/api/v1/ip/batch \
         "code": "NA",
         "name": "North America"
       },
-      "query_time_ms": 1
+      "query_time_ms": 0
     }
   ],
   "total": 3,

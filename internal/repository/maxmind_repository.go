@@ -41,7 +41,7 @@ func NewMaxMindRepository(dbPath string) (MaxMindRepository, error) {
 	}, nil
 }
 
-// LookupCountry 查詢 IP 的國家資訊
+// LookupCountry 查詢 IP 的國家和城市資訊
 func (r *maxMindRepository) LookupCountry(ipStr string) (*model.IPInfo, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -56,8 +56,8 @@ func (r *maxMindRepository) LookupCountry(ipStr string) (*model.IPInfo, error) {
 		return nil, ErrInvalidIP
 	}
 
-	// 查詢國家資訊
-	record, err := r.reader.Country(ip)
+	// 查詢城市資訊（包含國家、城市、位置等完整資訊）
+	record, err := r.reader.City(ip)
 	if err != nil {
 		return nil, ErrIPNotFound
 	}
@@ -74,6 +74,24 @@ func (r *maxMindRepository) LookupCountry(ipStr string) (*model.IPInfo, error) {
 			Code: record.Continent.Code,
 			Name: record.Continent.Names["en"],
 		},
+	}
+
+	// 添加城市資訊（如果有）
+	if record.City.Names != nil && len(record.City.Names) > 0 {
+		info.City = &model.CityInfo{
+			Name:       record.City.Names["en"],
+			NameZh:     record.City.Names["zh-CN"],
+			PostalCode: record.Postal.Code,
+		}
+	}
+
+	// 添加位置資訊
+	if record.Location.Latitude != 0 || record.Location.Longitude != 0 {
+		info.Location = &model.LocationInfo{
+			Latitude:  record.Location.Latitude,
+			Longitude: record.Location.Longitude,
+			TimeZone:  record.Location.TimeZone,
+		}
 	}
 
 	return info, nil
