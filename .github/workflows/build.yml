@@ -1,0 +1,145 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  GO_VERSION: '1.26'
+  DOCKER_IMAGE: goip
+  DOCKER_TAG: latest
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run go mod verify
+      run: go mod verify
+
+    - name: Run tests
+      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.txt
+        flags: unittests
+        name: codecov-umbrella
+      continue-on-error: true
+
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      run: |
+        chmod +x ./build/docker-build.sh
+        ./build/docker-build.sh -n ${{ env.DOCKER_IMAGE }} -v ${{ env.DOCKER_TAG }}
+
+    - name: Start Redis for testing
+      run: |
+        docker run -d \
+          --name redis-test \
+          -p 6379:6379 \
+          redis:7-alpine
+
+    - name: Wait for Redis to be ready
+      run: |
+        timeout 30 bash -c 'until docker exec redis-test redis-cli ping | grep -q PONG; do sleep 1; done'
+
+    - name: Run smoke tests
+      run: |
+        # 啟動 GoIP 容器
+        docker run -d \
+          --name goip-test \
+          --network host \
+          -e REDIS_HOST=localhost \
+          -e REDIS_PORT=6379 \
+          -e LOG_LEVEL=debug \
+          ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
+
+        # 等待服務啟動
+        echo "Waiting for GoIP service to start..."
+        timeout 30 bash -c 'until curl -f http://localhost:8080/api/v1/health; do sleep 2; done'
+
+        # 執行健康檢查
+        echo "Running health check..."
+        curl -f http://localhost:8080/api/v1/health || exit 1
+
+        # 測試 IP 查詢
+        echo "Testing IP lookup..."
+        curl -f http://localhost:8080/api/v1/ip/8.8.8.8 || exit 1
+
+        # 測試批次查詢
+        echo "Testing batch lookup..."
+        curl -f -X POST http://localhost:8080/api/v1/ip/batch \
+          -H "Content-Type: application/json" \
+          -d '{"ips": ["8.8.8.8", "1.1.1.1"]}' || exit 1
+
+        echo "All smoke tests passed!"
+
+    - name: Show service logs on failure
+      if: failure()
+      run: |
+        echo "=== GoIP Logs ==="
+        docker logs goip-test || true
+        echo "=== Redis Logs ==="
+        docker logs redis-test || true
+
+    - name: Cleanup
+      if: always()
+      run: |
+        docker stop goip-test redis-test || true
+        docker rm goip-test redis-test || true
+
+  lint:
+    name: Run Linters
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v4
+      with:
+        version: latest
+        args: --timeout=5m
