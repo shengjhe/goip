@@ -1,0 +1,66 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Dependency directories
+vendor/
+
+# Build output
+/bin/
+/dist/
+/build/
+*.bin
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+*.tmp
+*.temp
+
+# MaxMind database files (optional - uncomment if you don't want to commit the DB)
+# data/*.mmdb
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Test coverage
+coverage.txt
+coverage.html
+*.coverprofile
+
+# Debug
+debug
+__debug_bin
+
+# Air live reload
+tmp/
