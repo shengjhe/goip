@@ -33,8 +33,16 @@ goip/
 ├── config/
 │   └── config.go                  # 配置管理
 ├── data/
-│   └── GeoLite2-Country.mmdb      # MaxMind 資料庫檔案
-├── docker-compose.yml             # Docker Compose 配置（含 Redis）
+│   └── GeoLite2-City.mmdb         # MaxMind 資料庫檔案
+├── build/                         # 建置產物目錄
+│   └── README.md
+├── deployments/                   # 部署配置
+│   ├── Dockerfile                 # Docker 映像建置檔案
+│   ├── docker-compose.yml         # Docker Compose 配置（含 Redis）
+│   └── README.md
+├── scripts/                       # 輔助腳本
+│   ├── build.sh                   # 建置腳本（跨平台）
+│   └── README.md
 ├── go.mod
 ├── go.sum
 ├── Makefile

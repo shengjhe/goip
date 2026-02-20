@@ -21,7 +21,8 @@ vendor/
 # Build output
 /bin/
 /dist/
-/build/
+/build/*
+!build/.gitkeep
 *.bin
 
 # IDE

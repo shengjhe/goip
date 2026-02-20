@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  goip:
+    build:
+      context: ../..
+      dockerfile: deployments/goip/Dockerfile
+    container_name: goip-service
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - MAXMIND_DB_PATH=/app/data/GeoLite2-City.mmdb
+      - CACHE_ENABLED=true
+      - CACHE_TTL=24h
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_RPM=100
+      - RATE_LIMIT_RPH=5000
+      - LOG_LEVEL=info
+      - LOG_FORMAT=json
+    volumes:
+      - ../../data:/app/data:ro
+    networks:
+      - goip-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  goip-network:
+    name: goip-network
+    external: true

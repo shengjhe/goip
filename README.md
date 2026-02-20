@@ -50,7 +50,13 @@ cp .env.example .env
 ### 使用 Docker Compose 運行
 
 ```bash
-docker-compose up -d
+# 完整部署（建置 + 啟動所有服務）
+make full-deploy
+
+# 或分步啟動
+make docker-deps-up    # 啟動依賴服務（Redis）
+make docker-build      # 建置 GoIP 映像
+make docker-goip-up    # 啟動 GoIP 服務
 ```
 
 服務將在 `http://localhost:8080` 啟動。
@@ -61,11 +67,11 @@ docker-compose up -d
 # 安裝依賴
 go mod download
 
-# 啟動 Redis（如果沒有運行）
-docker run -d -p 6379:6379 redis:7-alpine
+# 啟動依賴服務（Redis）
+make docker-deps-up
 
 # 運行服務
-go run cmd/server/main.go
+make run
 ```
 
 ## API 文檔
@@ -148,7 +154,10 @@ goip/
 │   └── middleware/     # 中間件
 ├── pkg/                # 可共享的函式庫
 ├── config/             # 配置管理
-└── data/               # MaxMind 資料庫檔案
+├── data/               # MaxMind 資料庫檔案
+├── build/              # 建置產物目錄
+├── deployments/        # 部署配置（Dockerfile, docker-compose.yml）
+└── scripts/            # 輔助腳本
 ```
 
 ### 運行測試
@@ -160,21 +169,53 @@ go test ./...
 ### 建置
 
 ```bash
-go build -o bin/goip cmd/server/main.go
+# 使用 Makefile
+make build
+
+# 或使用建置腳本
+./scripts/build.sh
+
+# 跨平台建置
+./scripts/build.sh all
 ```
+
+建置產物會放在 `build/` 目錄。
 
 ## 部署
 
 ### Docker
 
 ```bash
-docker build -t goip:latest .
+# 建置映像（使用 docker-build.sh）
+make docker-build
+
+# 或指定版本
+make docker-build-version VERSION=1.0.0
+
+# 運行容器
 docker run -d -p 8080:8080 --env-file .env goip:latest
 ```
 
 ### Docker Compose
 
-參考 `docker-compose.yml` 進行部署。
+```bash
+# 啟動所有服務（依賴 + GoIP）
+make docker-up
+
+# 停止所有服務
+make docker-down
+
+# 重啟服務
+make docker-restart
+
+# 查看日誌
+make docker-logs
+
+# 查看服務狀態
+make docker-ps
+```
+
+詳細配置請參考 [deployments/](deployments/) 目錄。
 
 ## 授權
 
