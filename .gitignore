@@ -21,9 +21,11 @@ vendor/
 # Build output
 /bin/
 /dist/
-/build/*
-!build/.gitkeep
 *.bin
+
+# Build directory - ignore only binary outputs
+/build/goip
+/build/goip-*
 
 # IDE
 .idea/
