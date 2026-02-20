@@ -40,6 +40,7 @@ cd goip
 - 註冊 [MaxMind](https://www.maxmind.com/en/geolite2/signup) 帳號
 - 下載 GeoLite2-City.mmdb
 - 放置到 `data/` 目錄
+- **資料庫更新**: MaxMind 每週二更新 GeoLite2 資料庫，建議定期更新以確保資料準確性
 
 3. 複製環境變數範例（可選）
 ```bash
@@ -207,6 +208,21 @@ GET /api/v1/stats
 | LOG_LEVEL | info | 日誌級別 |
 
 完整配置說明請參考 [DESIGN.md](DESIGN.md)。
+
+### MaxMind 資料庫維護
+
+MaxMind GeoLite2 資料庫需要定期更新以確保資料準確性：
+
+- **更新頻率**: MaxMind 每週二發布新版本
+- **檔案位置**: `data/GeoLite2-City.mmdb` (約 54MB)
+- **建議**: 每月至少更新一次資料庫
+- **下載方式**: 從 [MaxMind 官網](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data)下載最新版本
+- **熱更新**: 更新資料庫檔案後需重啟服務以載入新資料
+
+```bash
+# 更新資料庫後重啟服務
+make docker-goip-restart
+```
 
 ## 效能指標
 
