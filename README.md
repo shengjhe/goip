@@ -9,11 +9,11 @@
 - 🔒 **限流保護**: Redis 實現的分散式限流
 - 📊 **批次查詢**: 支援批次 IP 查詢，使用 Pipeline 優化
 - 🐳 **容器化**: Docker Compose 一鍵部署
-- 📈 **可監控**: 支援 Prometheus metrics 導出
+- 📈 **可監控**: 支援健康檢查和統計 API
 
 ## 技術棧
 
-- **語言**: Go 1.21+
+- **語言**: Go 1.23+
 - **Web 框架**: Gin
 - **快取**: Redis 7+
 - **資料庫**: MaxMind GeoLite2
@@ -24,8 +24,8 @@
 
 ### 前置需求
 
-- Go 1.21 或更高版本
-- Redis 7.0 或更高版本
+- Docker & Docker Compose（推薦）
+- 或 Go 1.23+ & Redis 7.0+
 - MaxMind GeoLite2 資料庫
 
 ### 安裝
@@ -36,27 +36,50 @@ git clone https://github.com/axiom/goip.git
 cd goip
 ```
 
-2. 複製並配置環境變數
-```bash
-cp .env.example .env
-# 編輯 .env 填入你的配置
-```
-
-3. 下載 MaxMind 資料庫
+2. 下載 MaxMind 資料庫
 - 註冊 [MaxMind](https://www.maxmind.com/en/geolite2/signup) 帳號
-- 下載 GeoLite2-Country.mmdb 或 GeoLite2-City.mmdb
+- 下載 GeoLite2-City.mmdb
 - 放置到 `data/` 目錄
 
-### 使用 Docker Compose 運行
-
+3. 複製環境變數範例（可選）
 ```bash
-# 完整部署（建置 + 啟動所有服務）
+cp .env.example .env
+# 根據需要編輯 .env
+```
+
+### 使用 Docker Compose 部署（推薦）
+
+**方式一：使用 Makefile**
+```bash
+# 一鍵建置並部署
 make full-deploy
 
-# 或分步啟動
-make docker-deps-up    # 啟動依賴服務（Redis）
-make docker-build      # 建置 GoIP 映像
-make docker-goip-up    # 啟動 GoIP 服務
+# 或分步執行
+make docker-build      # 建置 GoIP Docker 映像
+make docker-up         # 啟動所有服務（Redis + GoIP）
+```
+
+**方式二：使用啟動腳本**
+```bash
+# 1. 建置 Docker 映像
+./build/docker-build.sh
+
+# 2. 啟動 Redis
+cd deployments/redis
+./start.sh
+
+# 3. 啟動 GoIP
+cd ../goip
+./start.sh
+```
+
+**方式三：直接使用 docker-compose**
+```bash
+# 啟動 Redis
+docker-compose -f deployments/redis/docker-compose.yml up -d
+
+# 啟動 GoIP
+docker-compose -f deployments/goip/docker-compose.yml up -d
 ```
 
 服務將在 `http://localhost:8080` 啟動。
@@ -67,11 +90,15 @@ make docker-goip-up    # 啟動 GoIP 服務
 # 安裝依賴
 go mod download
 
-# 啟動依賴服務（Redis）
-make docker-deps-up
+# 啟動 Redis
+make docker-redis-up
+# 或
+cd deployments/redis && ./start.sh
 
 # 運行服務
 make run
+# 或
+go run cmd/server/main.go
 ```
 
 ## API 文檔
@@ -94,13 +121,13 @@ curl http://localhost:8080/api/v1/ip/8.8.8.8
   "country": {
     "iso_code": "US",
     "name": "United States",
-    "name_zh": "美國"
+    "name_zh": "美国"
   },
   "continent": {
     "code": "NA",
     "name": "North America"
   },
-  "query_time_ms": 2
+  "query_time_ms": 1
 }
 ```
 
@@ -109,9 +136,36 @@ curl http://localhost:8080/api/v1/ip/8.8.8.8
 ```bash
 POST /api/v1/ip/batch
 Content-Type: application/json
+```
 
+**範例請求:**
+```bash
+curl -X POST http://localhost:8080/api/v1/ip/batch \
+  -H "Content-Type: application/json" \
+  -d '{"ips": ["8.8.8.8", "1.1.1.1", "140.112.1.1"]}'
+```
+
+**範例回應:**
+```json
 {
-  "ips": ["8.8.8.8", "1.1.1.1"]
+  "results": [
+    {
+      "ip": "8.8.8.8",
+      "country": {
+        "iso_code": "US",
+        "name": "United States",
+        "name_zh": "美国"
+      },
+      "continent": {
+        "code": "NA",
+        "name": "North America"
+      },
+      "query_time_ms": 1
+    }
+  ],
+  "total": 3,
+  "success": 3,
+  "failed": 0
 }
 ```
 
@@ -121,14 +175,36 @@ Content-Type: application/json
 GET /api/v1/health
 ```
 
+**範例回應:**
+```json
+{
+  "status": "healthy",
+  "services": {
+    "maxmind": "healthy",
+    "redis": "healthy"
+  }
+}
+```
+
+### 統計資訊
+
+```bash
+GET /api/v1/stats
+```
+
 ## 配置說明
 
-主要配置項目請參考 `.env.example`：
+主要環境變數（詳見 `.env.example`）：
 
-- **SERVER_PORT**: 服務監聽端口（預設 8080）
-- **REDIS_HOST**: Redis 伺服器地址
-- **CACHE_TTL**: 快取過期時間（預設 24h）
-- **RATE_LIMIT_RPM**: 每分鐘請求限制（預設 100）
+| 變數名稱 | 預設值 | 說明 |
+|---------|--------|------|
+| SERVER_PORT | 8080 | HTTP 服務端口 |
+| REDIS_HOST | redis | Redis 主機位址 |
+| REDIS_PORT | 6379 | Redis 端口 |
+| MAXMIND_DB_PATH | ./data/GeoLite2-City.mmdb | MaxMind 資料庫路徑 |
+| CACHE_TTL | 24h | 快取過期時間 |
+| RATE_LIMIT_RPM | 100 | 每分鐘請求限制 |
+| LOG_LEVEL | info | 日誌級別 |
 
 完整配置說明請參考 [DESIGN.md](DESIGN.md)。
 
@@ -155,51 +231,70 @@ goip/
 ├── pkg/                # 可共享的函式庫
 ├── config/             # 配置管理
 ├── data/               # MaxMind 資料庫檔案
-├── build/              # 建置檔案（Dockerfile）和產物
-├── deployments/        # 部署配置（docker-compose for goip/redis）
-└── build/            # 輔助腳本
+├── build/              # 建置腳本、Dockerfile 和編譯產物
+└── deployments/        # 部署配置（docker-compose）
+    ├── goip/          # GoIP 服務部署
+    └── redis/         # Redis 服務部署
 ```
 
 ### 運行測試
 
 ```bash
-go test ./...
+# 運行所有測試
+make test
+
+# 運行測試並生成覆蓋率報告
+make test-coverage
 ```
 
 ### 建置
 
+**編譯二進制檔案：**
 ```bash
-# 使用 Makefile
+# 編譯當前平台
 make build
-
-# 或使用建置腳本
+# 或
 ./build/build.sh
 
-# 跨平台建置
+# 跨平台編譯
+make build-all
+# 或
 ./build/build.sh all
 ```
 
 建置產物會放在 `build/` 目錄。
+
+**建置 Docker 映像：**
+```bash
+# 使用 Makefile
+make docker-build
+
+# 指定版本
+make docker-build-version VERSION=1.0.0
+
+# 使用建置腳本
+./build/docker-build.sh -v 1.0.0
+```
 
 ## 部署
 
 ### Docker
 
 ```bash
-# 建置映像（使用 docker-build.sh）
+# 建置映像
 make docker-build
 
-# 或指定版本
-make docker-build-version VERSION=1.0.0
-
 # 運行容器
-docker run -d -p 8080:8080 --env-file .env goip:latest
+docker run -d -p 8080:8080 \
+  -v $(pwd)/data:/app/data:ro \
+  --name goip \
+  goip:latest
 ```
 
 ### Docker Compose
 
 ```bash
-# 啟動所有服務（依賴 + GoIP）
+# 啟動所有服務
 make docker-up
 
 # 停止所有服務
@@ -215,7 +310,36 @@ make docker-logs
 make docker-ps
 ```
 
-詳細配置請參考 [deployments/](deployments/) 目錄。
+詳細部署說明請參考：
+- [build/README.md](build/README.md) - 建置說明
+- [deployments/README.md](deployments/README.md) - 部署說明
+
+## 常用命令
+
+```bash
+# 開發
+make run                # 本地運行服務
+make test               # 運行測試
+make build              # 編譯二進制
+
+# Docker 建置
+make docker-build       # 建置 Docker 映像
+
+# Docker Compose 部署
+make docker-up          # 啟動所有服務
+make docker-down        # 停止所有服務
+make docker-logs        # 查看日誌
+make docker-ps          # 查看狀態
+
+# 單獨管理服務
+make docker-redis-up    # 啟動 Redis
+make docker-redis-down  # 停止 Redis
+make docker-goip-up     # 啟動 GoIP
+make docker-goip-down   # 停止 GoIP
+
+# 完整部署
+make full-deploy        # 建置 + 啟動所有服務
+```
 
 ## 授權
 
@@ -227,6 +351,8 @@ MIT License
 
 ## 參考資源
 
-- [設計文檔](DESIGN.md)
+- [設計文檔](DESIGN.md) - 完整架構設計
+- [建置說明](build/README.md) - 建置和 Docker 映像
+- [部署說明](deployments/README.md) - Docker Compose 部署
 - [MaxMind GeoLite2](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data)
 - [Gin Framework](https://gin-gonic.com/)
