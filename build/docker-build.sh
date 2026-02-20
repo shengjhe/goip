@@ -12,7 +12,7 @@ NC='\033[0m' # No Color
 IMAGE_NAME="goip"
 VERSION="latest"
 BUILD_CONTEXT="."
-DOCKERFILE="deployments/goip/Dockerfile"
+DOCKERFILE="build/Dockerfile"
 PLATFORM=""
 
 # 輸出帶顏色的訊息

@@ -2,10 +2,8 @@ version: '3.8'
 
 services:
   goip:
-    build:
-      context: ../..
-      dockerfile: deployments/goip/Dockerfile
-    container_name: goip-service
+    image: goip:latest
+    container_name: goip
     ports:
       - "8080:8080"
     environment:

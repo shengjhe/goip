@@ -6,7 +6,6 @@ BINARY_NAME=goip
 MAIN_PATH=cmd/server/main.go
 BUILD_DIR=build
 DEPLOY_DIR=deployments
-SCRIPTS_DIR=scripts
 
 # Docker 相關
 DOCKER_IMAGE=$(BINARY_NAME)
@@ -28,7 +27,7 @@ build: ## 建置專案
 
 build-all: ## 跨平台建置（使用 build.sh）
 	@echo "Building for all platforms..."
-	@$(SCRIPTS_DIR)/build.sh all
+	@$(BUILD_DIR)/build.sh all
 
 run: ## 運行服務
 	@go run $(MAIN_PATH)
@@ -82,44 +81,44 @@ vet: ## 靜態分析
 
 docker-build: ## 建置 Docker 映像（使用 docker-build.sh）
 	@echo "Building Docker image..."
-	@$(SCRIPTS_DIR)/docker-build.sh -n $(DOCKER_IMAGE) -v $(DOCKER_TAG)
+	@$(BUILD_DIR)/docker-build.sh -n $(DOCKER_IMAGE) -v $(DOCKER_TAG)
 
 docker-build-version: ## 建置帶版本的 Docker 映像 (用法: make docker-build-version VERSION=1.0.0)
 	@echo "Building Docker image with version..."
-	@$(SCRIPTS_DIR)/docker-build.sh -n $(DOCKER_IMAGE) -v $(VERSION)
+	@$(BUILD_DIR)/docker-build.sh -n $(DOCKER_IMAGE) -v $(VERSION)
 
 # ============================================================================
-# Docker Compose - 依賴服務
+# Docker Compose - Redis
 # ============================================================================
 
-docker-deps-up: ## 啟動依賴服務（Redis）
-	@echo "Starting dependency services..."
-	@docker-compose -f $(DEPLOY_DIR)/dependencies/docker-compose.yml up -d
-	@echo "Dependency services started"
+docker-redis-up: ## 啟動 Redis 服務
+	@echo "Starting Redis..."
+	@docker-compose -f $(DEPLOY_DIR)/redis/docker-compose.yml up -d
+	@echo "Redis started"
 
-docker-deps-down: ## 停止依賴服務
-	@echo "Stopping dependency services..."
-	@docker-compose -f $(DEPLOY_DIR)/dependencies/docker-compose.yml down
-	@echo "Dependency services stopped"
+docker-redis-down: ## 停止 Redis 服務
+	@echo "Stopping Redis..."
+	@docker-compose -f $(DEPLOY_DIR)/redis/docker-compose.yml down
+	@echo "Redis stopped"
 
-docker-deps-logs: ## 查看依賴服務日誌
-	@docker-compose -f $(DEPLOY_DIR)/dependencies/docker-compose.yml logs -f
+docker-redis-logs: ## 查看 Redis 日誌
+	@docker-compose -f $(DEPLOY_DIR)/redis/docker-compose.yml logs -f
 
 # ============================================================================
-# Docker Compose - GoIP 服務
+# Docker Compose - GoIP
 # ============================================================================
 
 docker-goip-up: ## 啟動 GoIP 服務
-	@echo "Starting GoIP service..."
+	@echo "Starting GoIP..."
 	@docker-compose -f $(DEPLOY_DIR)/goip/docker-compose.yml up -d
-	@echo "GoIP service started"
+	@echo "GoIP started"
 
 docker-goip-down: ## 停止 GoIP 服務
-	@echo "Stopping GoIP service..."
+	@echo "Stopping GoIP..."
 	@docker-compose -f $(DEPLOY_DIR)/goip/docker-compose.yml down
-	@echo "GoIP service stopped"
+	@echo "GoIP stopped"
 
-docker-goip-logs: ## 查看 GoIP 服務日誌
+docker-goip-logs: ## 查看 GoIP 日誌
 	@docker-compose -f $(DEPLOY_DIR)/goip/docker-compose.yml logs -f
 
 docker-goip-restart: ## 重啟 GoIP 服務
@@ -130,24 +129,24 @@ docker-goip-restart: ## 重啟 GoIP 服務
 # Docker Compose - 完整部署
 # ============================================================================
 
-docker-up: docker-deps-up docker-goip-up ## 啟動所有服務（依賴 + GoIP）
+docker-up: docker-redis-up docker-goip-up ## 啟動所有服務（Redis + GoIP）
 
-docker-down: docker-goip-down docker-deps-down ## 停止所有服務
+docker-down: docker-goip-down docker-redis-down ## 停止所有服務
 
 docker-restart: docker-down docker-up ## 重啟所有服務
 
 docker-logs: ## 查看所有服務日誌
-	@echo "=== Dependency Services Logs ==="
-	@docker-compose -f $(DEPLOY_DIR)/dependencies/docker-compose.yml logs --tail=50
+	@echo "=== Redis Logs ==="
+	@docker-compose -f $(DEPLOY_DIR)/redis/docker-compose.yml logs --tail=50
 	@echo ""
-	@echo "=== GoIP Service Logs ==="
+	@echo "=== GoIP Logs ==="
 	@docker-compose -f $(DEPLOY_DIR)/goip/docker-compose.yml logs --tail=50
 
 docker-ps: ## 查看所有容器狀態
-	@echo "=== Dependency Services ==="
-	@docker-compose -f $(DEPLOY_DIR)/dependencies/docker-compose.yml ps
+	@echo "=== Redis ==="
+	@docker-compose -f $(DEPLOY_DIR)/redis/docker-compose.yml ps
 	@echo ""
-	@echo "=== GoIP Service ==="
+	@echo "=== GoIP ==="
 	@docker-compose -f $(DEPLOY_DIR)/goip/docker-compose.yml ps
 
 # ============================================================================
@@ -175,8 +174,8 @@ update-db: ## 更新 MaxMind 資料庫（需手動下載）
 # 快速啟動指令
 # ============================================================================
 
-quick-start: docker-deps-up ## 快速啟動（依賴服務 + 本地運行 GoIP）
-	@echo "Dependencies started. Now run 'make run' to start GoIP locally"
+quick-start: docker-redis-up ## 快速啟動（Redis + 本地運行 GoIP）
+	@echo "Redis started. Now run 'make run' to start GoIP locally"
 
 full-deploy: docker-build docker-up ## 完整部署（建置 + 啟動所有服務）
 	@echo "Full deployment complete!"

@@ -1,0 +1,60 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+CHANGELOG.md
+DESIGN.md
+LICENSE
+
+# Build artifacts
+build/
+bin/
+dist/
+
+# Dependencies
+vendor/
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+*.tmp
+*.temp
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+*_test.go
+coverage.*
+*.coverprofile
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Deployment configs (不需要在映像中)
+deployments/
+
+# Scripts (部署時不需要)
+scripts/
+
+# Development tools config
+.air.toml

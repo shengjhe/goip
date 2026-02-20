@@ -1,87 +1,25 @@
-# 部署配置
+# Deployments
 
-GoIP 服務的 Docker 部署配置目錄。
+部署配置目錄，包含 GoIP 服務和 Redis 的 Docker Compose 配置。
 
 ## 目錄結構
 
 ```
 deployments/
-├── goip/                    # GoIP 主服務部署配置
-│   ├── Dockerfile           # GoIP Docker 映像建置檔案
-│   ├── docker-compose.yml   # GoIP 服務編排配置
-│   └── README.md            # GoIP 部署說明
-└── dependencies/            # 依賴服務部署配置
-    ├── docker-compose.yml   # 依賴服務編排配置（Redis）
-    ├── redis.conf           # Redis 配置檔案
-    ├── .env.example         # 環境變數範例
-    └── README.md            # 依賴服務部署說明
+├── goip/                   # GoIP 服務部署
+│   ├── docker-compose.yml
+│   ├── start.sh           # 啟動腳本
+│   └── stop.sh            # 停止腳本
+└── redis/                  # Redis 服務部署
+    ├── docker-compose.yml
+    ├── redis.conf
+    ├── start.sh           # 啟動腳本
+    └── stop.sh            # 停止腳本
 ```
 
-## 部署方式
+## 快速啟動
 
 ### 方式一：使用 Makefile（推薦）
-
-#### 完整部署（建置 + 啟動所有服務）
-
-```bash
-# 建置映像並啟動所有服務
-make full-deploy
-
-# 檢查服務狀態
-make docker-ps
-
-# 查看日誌
-make docker-logs
-```
-
-#### 分步部署
-
-```bash
-# 1. 啟動依賴服務（Redis）
-make docker-deps-up
-
-# 2. 建置 GoIP Docker 映像
-make docker-build
-
-# 3. 啟動 GoIP 服務
-make docker-goip-up
-```
-
-#### 本地開發模式
-
-```bash
-# 只啟動依賴服務，本地運行 GoIP
-make quick-start
-
-# 在另一個終端運行 GoIP
-make run
-```
-
-### 方式二：手動使用 Docker Compose
-
-#### 啟動所有服務
-
-```bash
-# 1. 啟動依賴服務
-docker-compose -f deployments/dependencies/docker-compose.yml up -d
-
-# 2. 建置並啟動 GoIP 服務
-docker-compose -f deployments/goip/docker-compose.yml up -d --build
-```
-
-#### 停止所有服務
-
-```bash
-# 停止 GoIP 服務
-docker-compose -f deployments/goip/docker-compose.yml down
-
-# 停止依賴服務
-docker-compose -f deployments/dependencies/docker-compose.yml down
-```
-
-## 常用命令
-
-### 服務管理
 
 ```bash
 # 啟動所有服務
@@ -89,63 +27,73 @@ make docker-up
 
 # 停止所有服務
 make docker-down
-
-# 重啟所有服務
-make docker-restart
-
-# 查看服務狀態
-make docker-ps
 ```
 
-### 日誌查看
+### 方式二：使用啟動腳本
 
 ```bash
-# 查看所有日誌
-make docker-logs
+# 1. 啟動 Redis
+cd deployments/redis
+./start.sh
 
-# 只查看 GoIP 日誌
-make docker-goip-logs
-
-# 只查看依賴服務日誌
-make docker-deps-logs
+# 2. 啟動 GoIP
+cd ../goip
+./start.sh
 ```
 
-### 單獨管理依賴服務
+### 方式三：手動啟動
 
 ```bash
-# 啟動依賴服務
-make docker-deps-up
+# 1. 啟動 Redis
+docker-compose -f deployments/redis/docker-compose.yml up -d
 
-# 停止依賴服務
-make docker-deps-down
-
-# 查看依賴服務日誌
-make docker-deps-logs
+# 2. 啟動 GoIP
+docker-compose -f deployments/goip/docker-compose.yml up -d
 ```
 
-### 單獨管理 GoIP 服務
+## 服務說明
+
+### GoIP 服務
+- 埠: 8080
+- 映像: goip:latest（需先建置，見 [build/](../build/)）
+- 網路: goip-network
+- 腳本:
+  - `./deployments/goip/start.sh` - 啟動服務
+  - `./deployments/goip/stop.sh` - 停止服務
+
+### Redis 服務
+- 埠: 127.0.0.1:6379（只綁定本地）
+- 配置: redis.conf
+- 持久化: Docker volume `redis-data`
+- 網路: goip-network
+- 腳本:
+  - `./deployments/redis/start.sh` - 啟動服務
+  - `./deployments/redis/stop.sh` - 停止服務
+
+## 建置映像
+
+在部署前需先建置 GoIP 映像：
 
 ```bash
-# 啟動 GoIP 服務
-make docker-goip-up
+# 使用 Makefile
+make docker-build
 
-# 停止 GoIP 服務
-make docker-goip-down
-
-# 重啟 GoIP 服務
-make docker-goip-restart
-
-# 查看 GoIP 日誌
-make docker-goip-logs
+# 或使用建置腳本
+./build/docker-build.sh
 ```
 
-## 詳細文檔
+詳見 [build/README.md](../build/README.md)
 
-- [GoIP 服務部署說明](goip/README.md) - GoIP 主服務的詳細部署配置
-- [依賴服務部署說明](dependencies/README.md) - Redis 等依賴服務的配置和管理
+## 環境變數
 
-## 相關資源
+可通過環境變數覆蓋配置：
 
-- [主要 README](../README.md)
-- [設計文檔](../DESIGN.md)
-- [建置腳本說明](../scripts/README.md)
+```bash
+export REDIS_HOST=redis
+export REDIS_PASSWORD=your_password
+export LOG_LEVEL=debug
+```
+
+## 網路
+
+所有服務使用共享網路 `goip-network`，在啟動 Redis 時會自動建立。

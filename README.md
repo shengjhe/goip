@@ -155,9 +155,9 @@ goip/
 ├── pkg/                # 可共享的函式庫
 ├── config/             # 配置管理
 ├── data/               # MaxMind 資料庫檔案
-├── build/              # 建置產物目錄
-├── deployments/        # 部署配置（Dockerfile, docker-compose.yml）
-└── scripts/            # 輔助腳本
+├── build/              # 建置檔案（Dockerfile）和產物
+├── deployments/        # 部署配置（docker-compose for goip/redis）
+└── build/            # 輔助腳本
 ```
 
 ### 運行測試
@@ -173,10 +173,10 @@ go test ./...
 make build
 
 # 或使用建置腳本
-./scripts/build.sh
+./build/build.sh
 
 # 跨平台建置
-./scripts/build.sh all
+./build/build.sh all
 ```
 
 建置產物會放在 `build/` 目錄。
