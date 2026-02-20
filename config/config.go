@@ -116,7 +116,7 @@ func setDefaults() {
 	viper.SetDefault("server.shutdown_timeout", "30s")
 
 	// MaxMind
-	viper.SetDefault("maxmind.db_path", "./data/GeoLite2-Country.mmdb")
+	viper.SetDefault("maxmind.db_path", "./data/GeoLite2-City.mmdb")
 	viper.SetDefault("maxmind.auto_update", false)
 	viper.SetDefault("maxmind.update_interval", "24h")
 
