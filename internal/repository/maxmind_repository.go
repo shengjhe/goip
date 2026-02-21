@@ -5,7 +5,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/axiom/goip/internal/model"
+	"github.com/shengjhe/goip/internal/model"
 	"github.com/oschwald/geoip2-golang"
 )
 

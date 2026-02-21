@@ -5,7 +5,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/axiom/goip/internal/model"
+	"github.com/shengjhe/goip/internal/model"
 )
 
 var (

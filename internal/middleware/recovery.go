@@ -6,7 +6,7 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/axiom/goip/internal/model"
+	"github.com/shengjhe/goip/internal/model"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )

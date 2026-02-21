@@ -1,4 +1,4 @@
-module github.com/axiom/goip
+module github.com/shengjhe/goip
 
 go 1.26
 

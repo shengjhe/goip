@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/axiom/goip/internal/model"
+	"github.com/shengjhe/goip/internal/model"
 )
 
 // GeoIPRepository 統一的 GeoIP 查詢介面

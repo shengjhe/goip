@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/axiom/goip/internal/model"
+	"github.com/shengjhe/goip/internal/model"
 )
 
 // ExternalAPIType 外部 API 類型

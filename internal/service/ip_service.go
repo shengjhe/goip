@@ -6,8 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/axiom/goip/internal/model"
-	"github.com/axiom/goip/internal/repository"
+	"github.com/shengjhe/goip/internal/model"
+	"github.com/shengjhe/goip/internal/repository"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )

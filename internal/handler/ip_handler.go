@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/axiom/goip/internal/model"
-	"github.com/axiom/goip/internal/repository"
-	"github.com/axiom/goip/internal/service"
+	"github.com/shengjhe/goip/internal/model"
+	"github.com/shengjhe/goip/internal/repository"
+	"github.com/shengjhe/goip/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 )

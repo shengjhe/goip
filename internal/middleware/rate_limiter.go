@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/axiom/goip/internal/model"
+	"github.com/shengjhe/goip/internal/model"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
