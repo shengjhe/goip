@@ -39,8 +39,8 @@ WORKDIR /app
 # 從建置階段複製二進制檔案
 COPY --from=builder /build/bin/goip /app/goip
 
-# 複製資料目錄（如果需要）
-COPY --chown=goip:goip data /app/data
+# 建立資料目錄
+RUN mkdir -p /app/data && chown goip:goip /app/data
 
 # 切換到非 root 用戶
 USER goip

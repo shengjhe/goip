@@ -4,13 +4,14 @@ import "time"
 
 // IPInfo 表示 IP 查詢結果
 type IPInfo struct {
-	IP          string        `json:"ip"`
-	Country     CountryInfo   `json:"country"`
-	Continent   ContinentInfo `json:"continent"`
-	City        *CityInfo     `json:"city,omitempty"`
-	Location    *LocationInfo `json:"location,omitempty"`
-	QueryTimeMs int64         `json:"query_time_ms"`
-	CachedAt    *time.Time    `json:"cached_at,omitempty"`
+	IP          string        `json:"ip"`                    // 必填：IP 地址
+	Country     CountryInfo   `json:"country"`               // 必填：國家資訊
+	City        CityInfo      `json:"city"`                  // 必填：城市資訊
+	Provider    string        `json:"provider"`              // 必填：資料來源（maxmind, ipip）
+	Continent   *ContinentInfo `json:"continent,omitempty"`  // 選填：大洲資訊（只在有資料時顯示）
+	Location    *LocationInfo `json:"location,omitempty"`    // 選填：經緯度資訊（只在有資料時顯示）
+	QueryTimeMs int64        `json:"query_time_ms"`         // 查詢耗時
+	CachedAt    *time.Time   `json:"cached_at,omitempty"`   // 快取時間
 }
 
 // CountryInfo 國家資訊
@@ -28,9 +29,9 @@ type ContinentInfo struct {
 
 // CityInfo 城市資訊
 type CityInfo struct {
-	Name       string `json:"name,omitempty"`
-	NameZh     string `json:"name_zh,omitempty"`
-	PostalCode string `json:"postal_code,omitempty"`
+	Name       string `json:"name"`        // 城市名稱（英文），可能為空
+	NameZh     string `json:"name_zh"`     // 城市名稱（中文），可能為空
+	PostalCode string `json:"postal_code"` // 郵遞區號，可能為空
 }
 
 // LocationInfo 地理位置資訊

@@ -15,17 +15,16 @@ var (
 	ErrDatabaseClosed = errors.New("database is closed")
 )
 
-// MaxMindRepository MaxMind DB 存取介面
+// MaxMindRepository MaxMind DB 存取介面（保留向後相容）
 type MaxMindRepository interface {
-	LookupCountry(ip string) (*model.IPInfo, error)
-	Close() error
-	Reload(dbPath string) error
+	GeoIPRepository
 }
 
 type maxMindRepository struct {
-	reader *geoip2.Reader
-	dbPath string
-	mu     sync.RWMutex
+	reader       *geoip2.Reader
+	dbPath       string
+	providerType string
+	mu           sync.RWMutex
 }
 
 // NewMaxMindRepository 建立新的 MaxMind repository
@@ -36,8 +35,9 @@ func NewMaxMindRepository(dbPath string) (MaxMindRepository, error) {
 	}
 
 	return &maxMindRepository{
-		reader: reader,
-		dbPath: dbPath,
+		reader:       reader,
+		dbPath:       dbPath,
+		providerType: "maxmind",
 	}, nil
 }
 
@@ -62,7 +62,7 @@ func (r *maxMindRepository) LookupCountry(ipStr string) (*model.IPInfo, error) {
 		return nil, ErrIPNotFound
 	}
 
-	// 組裝回應
+	// 組裝回應 - 確保所有必填欄位都有值
 	info := &model.IPInfo{
 		IP: ipStr,
 		Country: model.CountryInfo{
@@ -70,22 +70,23 @@ func (r *maxMindRepository) LookupCountry(ipStr string) (*model.IPInfo, error) {
 			Name:    record.Country.Names["en"],
 			NameZh:  record.Country.Names["zh-CN"],
 		},
-		Continent: model.ContinentInfo{
-			Code: record.Continent.Code,
-			Name: record.Continent.Names["en"],
-		},
-	}
-
-	// 添加城市資訊（如果有）
-	if record.City.Names != nil && len(record.City.Names) > 0 {
-		info.City = &model.CityInfo{
+		City: model.CityInfo{
 			Name:       record.City.Names["en"],
 			NameZh:     record.City.Names["zh-CN"],
 			PostalCode: record.Postal.Code,
+		},
+		Provider: "", // 會在 MultiProvider 中設定
+	}
+
+	// 大洲資訊（只在有資料時添加）
+	if record.Continent.Code != "" || record.Continent.Names["en"] != "" {
+		info.Continent = &model.ContinentInfo{
+			Code: record.Continent.Code,
+			Name: record.Continent.Names["en"],
 		}
 	}
 
-	// 添加位置資訊
+	// 添加位置資訊（如果有經緯度）
 	if record.Location.Latitude != 0 || record.Location.Longitude != 0 {
 		info.Location = &model.LocationInfo{
 			Latitude:  record.Location.Latitude,
@@ -131,4 +132,9 @@ func (r *maxMindRepository) Reload(dbPath string) error {
 	r.dbPath = dbPath
 
 	return nil
+}
+
+// GetProviderType 取得提供者類型
+func (r *maxMindRepository) GetProviderType() string {
+	return r.providerType
 }

@@ -1,11 +1,12 @@
 # GoIP - IP 地理位置查詢服務
 
-基於 MaxMind GeoLite2 資料庫的高效能 IP 地理位置查詢 RESTful API 服務。
+支援多資料庫的高效能 IP 地理位置查詢 RESTful API 服務。
 
 ## 特色
 
 - 🚀 **高效能**: Redis 分散式快取 + 本地快取雙層架構
-- 🌍 **準確資料**: 基於 MaxMind GeoLite2 City 資料庫
+- 🌐 **多資料庫支援**: 整合 MaxMind GeoLite2 與 IPIP.NET
+- 🎯 **智能路由**: 中國大陸 IP 使用 IPIP，其他地區使用 MaxMind
 - 🏙️ **詳細資訊**: 支援國家、城市、郵遞區號、經緯度、時區等完整地理資訊
 - 🔒 **限流保護**: Redis 實現的分散式限流
 - 📊 **批次查詢**: 支援批次 IP 查詢，使用 Pipeline 優化
@@ -17,7 +18,9 @@
 - **語言**: Go 1.26+
 - **Web 框架**: Gin
 - **快取**: Redis 7+
-- **資料庫**: MaxMind GeoLite2 City
+- **IP 資料庫**:
+  - MaxMind GeoLite2 City (全球覆蓋，含經緯度)
+  - IPIP.NET 免費版 (中國地區詳細城市資訊)
 - **日誌**: Zerolog
 - **配置**: Viper
 
@@ -231,7 +234,85 @@ GET /api/v1/stats
 
 ## 配置說明
 
-主要環境變數（詳見 `.env.example`）：
+服務支援使用 YAML 配置檔或環境變數進行配置。
+
+### 配置檔案 (config.yaml)
+
+在專案根目錄建立 `config.yaml` 檔案：
+
+```yaml
+# 服務設定
+server:
+  port: 8080                  # HTTP 服務端口
+  read_timeout: 10s           # 讀取超時
+  write_timeout: 10s          # 寫入超時
+  shutdown_timeout: 30s       # 優雅關閉超時
+
+# 多提供者 GeoIP 配置（推薦）
+geoip:
+  providers:
+    # IPIP.NET - 中國地區優先
+    - type: ipip
+      db_path: ./data/ipipfree.ipdb
+      priority: 1
+      region: cn              # 適用於中國地區
+
+    # MaxMind - 海外地區優先
+    - type: maxmind
+      db_path: ./data/GeoLite2-City.mmdb
+      priority: 1
+      region: global          # 適用於海外地區
+
+# 向後相容：單一 MaxMind 資料庫配置
+# 如果 geoip.providers 未設定，則使用此配置
+# maxmind:
+#   db_path: ./data/GeoLite2-City.mmdb
+#   auto_update: false
+#   update_interval: 24h
+
+# Redis 配置
+redis:
+  host: localhost
+  port: 6379
+  password: ""                # Redis 密碼（選用）
+  db: 0                       # 資料庫編號
+  pool_size: 10               # 連接池大小
+  min_idle_conns: 5           # 最小閒置連接數
+  max_retries: 3              # 最大重試次數
+  dial_timeout: 5s            # 連線超時
+  read_timeout: 3s            # 讀取超時
+  write_timeout: 3s           # 寫入超時
+
+# 快取配置
+cache:
+  enabled: true               # 啟用快取
+  ttl: 24h                    # 快取過期時間
+  local_cache_enabled: false  # 啟用本地快取
+  local_cache_size: 1000      # 本地快取大小
+  local_cache_ttl: 5m         # 本地快取過期時間
+
+# 限流配置
+rate_limit:
+  enabled: true               # 啟用限流
+  requests_per_minute: 100    # 每分鐘請求限制
+  requests_per_hour: 5000     # 每小時請求限制
+  burst: 10                   # 突發流量上限
+  storage: redis              # 儲存方式 (redis 或 memory)
+
+# 批次查詢配置
+batch:
+  max_size: 100               # 批次查詢最大數量
+
+# 日誌配置
+log:
+  level: info                 # 日誌級別 (debug/info/warn/error)
+  format: json                # 日誌格式 (json 或 console)
+  output: stdout              # 輸出位置 (stdout 或檔案路徑)
+```
+
+### 環境變數
+
+也可以使用環境變數覆蓋配置（詳見 `.env.example`）：
 
 | 變數名稱 | 預設值 | 說明 |
 |---------|--------|------|
@@ -243,7 +324,7 @@ GET /api/v1/stats
 | RATE_LIMIT_RPM | 100 | 每分鐘請求限制 |
 | LOG_LEVEL | info | 日誌級別 |
 
-完整配置說明請參考 [DESIGN.md](DESIGN.md)。
+完整架構設計請參考 [DESIGN.md](DESIGN.md)。
 
 ### MaxMind 資料庫維護
 

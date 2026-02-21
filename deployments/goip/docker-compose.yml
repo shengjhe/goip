@@ -11,16 +11,20 @@ services:
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-      - MAXMIND_DB_PATH=/app/data/GeoLite2-City.mmdb
+      # 向後相容：單一 MaxMind 配置
+      # - MAXMIND_DB_PATH=/app/data/GeoLite2-City.mmdb
       - CACHE_ENABLED=true
       - CACHE_TTL=24h
-      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_ENABLED=false
       - RATE_LIMIT_RPM=100
       - RATE_LIMIT_RPH=5000
       - LOG_LEVEL=info
-      - LOG_FORMAT=json
+      - LOG_FORMAT=console
     volumes:
+      # 掛載資料目錄（包含 MaxMind 和 IPIP 資料庫）
       - ../../data:/app/data:ro
+      # 掛載配置檔案（多資料庫配置）
+      - ../../config.yaml:/app/config.yaml:ro
     networks:
       - goip-network
     restart: unless-stopped

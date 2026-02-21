@@ -49,8 +49,13 @@ tmp/
 *.tmp
 *.temp
 
-# MaxMind database files (optional - uncomment if you don't want to commit the DB)
-# data/*.mmdb
+# IP Database files (large binary files)
+data/*.mmdb
+data/*.ipdb
+
+# Compiled binary
+server
+goip
 
 # OS specific
 .DS_Store

@@ -15,13 +15,15 @@ import (
 // IPService IP 查詢服務介面
 type IPService interface {
 	LookupIP(ctx context.Context, ip string) (*model.IPInfo, error)
+	LookupIPByProvider(ctx context.Context, ip string, provider string) (*model.IPInfo, error)
 	BatchLookup(ctx context.Context, ips []string) (*model.BatchResult, error)
 	GetStats() *model.ServiceStats
 	InvalidateCache(ctx context.Context, ips ...string) error
+	GetAvailableProviders() []string
 }
 
 type ipService struct {
-	maxmind  repository.MaxMindRepository
+	geoip    repository.GeoIPRepository
 	cache    repository.CacheRepository
 	logger   zerolog.Logger
 	cacheTTL time.Duration
@@ -39,13 +41,13 @@ type ipService struct {
 
 // NewIPService 建立新的 IP Service
 func NewIPService(
-	maxmind repository.MaxMindRepository,
+	geoip repository.GeoIPRepository,
 	cache repository.CacheRepository,
 	logger zerolog.Logger,
 	cacheTTL time.Duration,
 ) IPService {
 	return &ipService{
-		maxmind:  maxmind,
+		geoip:    geoip,
 		cache:    cache,
 		logger:   logger,
 		cacheTTL: cacheTTL,
@@ -72,7 +74,7 @@ func (s *ipService) LookupIP(ctx context.Context, ip string) (*model.IPInfo, err
 	atomic.AddUint64(&s.stats.cacheMisses, 1)
 
 	// 3. 查詢 MaxMind DB
-	result, err = s.maxmind.LookupCountry(ip)
+	result, err = s.geoip.LookupCountry(ip)
 	if err != nil {
 		atomic.AddUint64(&s.stats.totalErrors, 1)
 		return nil, err
@@ -179,7 +181,7 @@ func (s *ipService) parallelLookup(ctx context.Context, ips []string) map[string
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 
-			info, err := s.maxmind.LookupCountry(ipAddr)
+			info, err := s.geoip.LookupCountry(ipAddr)
 			if err != nil {
 				atomic.AddUint64(&s.stats.totalErrors, 1)
 				s.logger.Debug().Err(err).Str("ip", ipAddr).Msg("Failed to lookup IP")
@@ -228,6 +230,41 @@ func (s *ipService) GetStats() *model.ServiceStats {
 // InvalidateCache 清除指定 IP 的快取
 func (s *ipService) InvalidateCache(ctx context.Context, ips ...string) error {
 	return s.cache.Delete(ctx, ips...)
+}
+
+// LookupIPByProvider 使用指定的提供者查詢 IP
+func (s *ipService) LookupIPByProvider(ctx context.Context, ip string, provider string) (*model.IPInfo, error) {
+	startTime := time.Now()
+	atomic.AddUint64(&s.stats.totalQueries, 1)
+
+	// 檢查是否為 MultiProvider
+	if multiRepo, ok := s.geoip.(*repository.MultiProviderRepository); ok {
+		result, err := multiRepo.LookupByProvider(ip, provider)
+		if err != nil {
+			atomic.AddUint64(&s.stats.totalErrors, 1)
+			s.logger.Error().Err(err).Str("ip", ip).Str("provider", provider).Msg("Provider lookup failed")
+			return nil, err
+		}
+
+		// 記錄查詢時間
+		result.QueryTimeMs = time.Since(startTime).Milliseconds()
+		s.recordQueryTime(startTime)
+
+		return result, nil
+	}
+
+	// 如果不是 MultiProvider，使用一般查詢
+	return s.LookupIP(ctx, ip)
+}
+
+// GetAvailableProviders 取得所有可用的提供者
+func (s *ipService) GetAvailableProviders() []string {
+	if multiRepo, ok := s.geoip.(*repository.MultiProviderRepository); ok {
+		return multiRepo.GetProviders()
+	}
+
+	// 如果不是 MultiProvider，返回單一提供者
+	return []string{s.geoip.GetProviderType()}
 }
 
 // recordQueryTime 記錄查詢時間

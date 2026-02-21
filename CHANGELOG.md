@@ -8,45 +8,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- 初始化專案結構與設計文檔
-- 完整的 API 設計規格（DESIGN.md）
-- 環境變數配置範本（.env.example）
-- Git 配置檔案（.gitignore）
-- MaxMind GeoLite2-City 資料庫
-- 專案說明文檔（README.md）
+- 🌐 多資料庫支援架構
+  - 新增 IPIP.NET 資料庫整合
+  - 新增統一的 GeoIPRepository 介面
+  - 新增 MultiProviderRepository 智能路由管理器
+- 🎯 智能路由功能
+  - 自動識別 IP 歸屬國家
+  - 中國大陸 IP 優先使用 IPIP（中文城市資訊詳細）
+  - 其他國家（含台港澳）優先使用 MaxMind（準確性高）
+- 📋 API 端點擴充
+  - `/api/v1/ip/:ip/provider?provider=xxx` - 指定資料庫查詢
+  - `/api/v1/providers` - 列出可用的資料庫提供者
+- 📝 統一回應格式
+  - 必填欄位：`ip`, `country`, `city`, `provider`
+  - 選填欄位：`continent`, `location`（只在有資料時出現）
+- 📚 文件更新
+  - 新增 CLAUDE.md 專案開發指南
+  - 新增 docs/ 目錄存放技術文件
 
-### Features
-- RESTful API 端點設計
-  - 單一 IP 查詢 (GET /api/v1/ip/{ip})
-  - 批次 IP 查詢 (POST /api/v1/ip/batch)
-  - 健康檢查 (GET /api/v1/health)
-- Redis 分散式快取架構
-  - L1 本地快取（可選）
-  - L2 Redis 快取
-  - Cache-Aside 模式
-  - Pipeline 批次操作優化
-- 分散式限流機制
-  - 基於 Redis Sorted Set 的滑動窗口
-  - 支援每分鐘/每小時限流
-  - 多實例支援
-- 完整的錯誤處理與降級策略
-  - Redis 故障自動降級
-  - 快取操作錯誤不影響主流程
+### Changed
+- 🔄 配置結構調整
+  - 支援多提供者配置（`geoip.providers`）
+  - 保留向後相容的單一 MaxMind 配置
+- 🏗️ 架構重構
+  - Repository 層採用統一介面
+  - Service 層透過 MultiProviderRepository 管理多資料庫
+- 📊 回應格式優化
+  - `continent` 和 `location` 改為指標類型
+  - 使用 `omitempty` 標籤避免空物件
 
-### Technical Specifications
-- Repository 層設計
-  - MaxMind DB 存取層
-  - Redis Cache 存取層
-- Service 層業務邏輯
-- Handler 層 HTTP 處理
-- Middleware 層
-  - Logger 日誌中間件
-  - Rate Limiter 限流中間件
-  - Recovery 錯誤恢復中間件
+### Fixed
+- 🐛 修正台灣 IP 被誤判為中國的問題
+  - 移除不準確的靜態 CIDR 列表判斷
+  - 改用 MaxMind 動態判斷國家歸屬
+- 🔧 修正 Docker 建置配置
+  - 移除不存在的 config.example.yaml 複製指令
 
-### Documentation
-- 完整的架構設計文檔（54+ 章節）
-- API 規格與回應格式
-- Redis 整合詳細設計
-- 部署架構與建議
-- 效能指標與監控方案
+### Security
+- ✅ Code Review 通過
+  - 無硬編碼密碼或 token
+  - 適當的錯誤處理和空值檢查
+  - 使用 RWMutex 確保並發安全
+
+## [1.0.0] - 2024-01-XX
+
+### Added
+- 初始版本發布
+- 基於 MaxMind GeoLite2 的 IP 查詢服務
+- Redis 快取支援
+- 限流保護
+- 批次查詢功能
+- Docker Compose 部署

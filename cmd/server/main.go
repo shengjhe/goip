@@ -36,14 +36,12 @@ func main() {
 
 	logger.Info().Msg("Starting GoIP service...")
 
-	// 初始化 MaxMind Repository
-	maxmindRepo, err := repository.NewMaxMindRepository(cfg.MaxMind.DBPath)
+	// 初始化 GeoIP Repository（支持多提供者）
+	geoipRepo, err := initGeoIPRepository(cfg, logger)
 	if err != nil {
-		logger.Fatal().Err(err).Msg("Failed to initialize MaxMind repository")
+		logger.Fatal().Err(err).Msg("Failed to initialize GeoIP repository")
 	}
-	defer maxmindRepo.Close()
-
-	logger.Info().Str("db_path", cfg.MaxMind.DBPath).Msg("MaxMind DB loaded")
+	defer geoipRepo.Close()
 
 	// 初始化 Redis Client
 	redisClient := initRedis(cfg.Redis, logger)
@@ -63,7 +61,7 @@ func main() {
 
 	// 初始化 Service
 	ipService := service.NewIPService(
-		maxmindRepo,
+		geoipRepo,
 		cacheRepo,
 		logger,
 		cfg.Cache.TTL,
@@ -73,7 +71,7 @@ func main() {
 	ipHandler := handler.NewIPHandler(
 		ipService,
 		cacheRepo,
-		maxmindRepo,
+		geoipRepo,
 		logger,
 		cfg.Batch.MaxSize,
 	)
@@ -171,11 +169,13 @@ func setupRouter(
 	{
 		// IP 查詢
 		v1.GET("/ip/:ip", ipHandler.HandleIPLookup)
+		v1.GET("/ip/:ip/provider", ipHandler.HandleIPLookupByProvider)
 		v1.POST("/ip/batch", ipHandler.HandleBatchLookup)
 
 		// 系統
 		v1.GET("/health", ipHandler.HandleHealth)
 		v1.GET("/stats", ipHandler.HandleStats)
+		v1.GET("/providers", ipHandler.HandleGetProviders)
 
 		// 快取管理
 		cache := v1.Group("/cache")
@@ -213,4 +213,78 @@ func gracefulShutdown(srv *http.Server, timeout time.Duration, logger zerolog.Lo
 	}
 
 	logger.Info().Msg("Server exited")
+}
+
+// initGeoIPRepository 初始化 GeoIP Repository
+func initGeoIPRepository(cfg *config.Config, logger zerolog.Logger) (repository.GeoIPRepository, error) {
+	// 優先使用新的多提供者配置
+	if len(cfg.GeoIP.Providers) > 0 {
+		return initMultiProviderRepository(cfg.GeoIP.Providers, logger)
+	}
+
+	// 向後相容：使用舊的 MaxMind 配置
+	if cfg.MaxMind.DBPath != "" {
+		logger.Warn().Msg("Using legacy maxmind.db_path configuration. Consider migrating to geoip.providers")
+		maxmindRepo, err := repository.NewMaxMindRepository(cfg.MaxMind.DBPath)
+		if err != nil {
+			return nil, err
+		}
+		logger.Info().Str("db_path", cfg.MaxMind.DBPath).Msg("MaxMind DB loaded (legacy mode)")
+		return maxmindRepo, nil
+	}
+
+	return nil, fmt.Errorf("no GeoIP database configured")
+}
+
+// initMultiProviderRepository 初始化多提供者 Repository
+func initMultiProviderRepository(providers []config.ProviderConfig, logger zerolog.Logger) (repository.GeoIPRepository, error) {
+	var providerInfos []repository.ProviderInfo
+
+	for i, providerCfg := range providers {
+		var geoipRepo repository.GeoIPRepository
+		var err error
+
+		switch providerCfg.Type {
+		case "maxmind":
+			geoipRepo, err = repository.NewMaxMindRepository(providerCfg.DBPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize MaxMind provider %d: %w", i, err)
+			}
+			logger.Info().
+				Str("type", "maxmind").
+				Str("db_path", providerCfg.DBPath).
+				Int("priority", providerCfg.Priority).
+				Str("region", providerCfg.Region).
+				Msg("MaxMind DB loaded")
+
+		case "ipip":
+			geoipRepo, err = repository.NewIPIPRepository(providerCfg.DBPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize IPIP provider %d: %w", i, err)
+			}
+			logger.Info().
+				Str("type", "ipip").
+				Str("db_path", providerCfg.DBPath).
+				Int("priority", providerCfg.Priority).
+				Str("region", providerCfg.Region).
+				Msg("IPIP DB loaded")
+
+		default:
+			return nil, fmt.Errorf("unknown provider type: %s", providerCfg.Type)
+		}
+
+		providerInfos = append(providerInfos, repository.ProviderInfo{
+			Provider: geoipRepo,
+			Priority: providerCfg.Priority,
+			Region:   providerCfg.Region,
+		})
+	}
+
+	multiRepo, err := repository.NewMultiProviderRepository(providerInfos)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create multi-provider repository: %w", err)
+	}
+
+	logger.Info().Int("provider_count", len(providerInfos)).Msg("Multi-provider GeoIP repository initialized")
+	return multiRepo, nil
 }

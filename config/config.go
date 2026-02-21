@@ -10,7 +10,8 @@ import (
 // Config 應用程式配置
 type Config struct {
 	Server    ServerConfig    `mapstructure:"server"`
-	MaxMind   MaxMindConfig   `mapstructure:"maxmind"`
+	MaxMind   MaxMindConfig   `mapstructure:"maxmind"`   // 向後相容
+	GeoIP     GeoIPConfig     `mapstructure:"geoip"`     // 新的多提供者配置
 	Redis     RedisConfig     `mapstructure:"redis"`
 	Cache     CacheConfig     `mapstructure:"cache"`
 	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
@@ -26,11 +27,24 @@ type ServerConfig struct {
 	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
 }
 
-// MaxMindConfig MaxMind 配置
+// MaxMindConfig MaxMind 配置（保留向後相容）
 type MaxMindConfig struct {
 	DBPath         string        `mapstructure:"db_path"`
 	AutoUpdate     bool          `mapstructure:"auto_update"`
 	UpdateInterval time.Duration `mapstructure:"update_interval"`
+}
+
+// GeoIPConfig GeoIP 資料庫配置
+type GeoIPConfig struct {
+	Providers []ProviderConfig `mapstructure:"providers"`
+}
+
+// ProviderConfig IP 資料庫提供者配置
+type ProviderConfig struct {
+	Type     string `mapstructure:"type"`      // maxmind, ipip
+	DBPath   string `mapstructure:"db_path"`   // 資料庫檔案路徑
+	Priority int    `mapstructure:"priority"`  // 優先級（數字越小優先級越高）
+	Region   string `mapstructure:"region"`    // 適用地區：cn, global, all
 }
 
 // RedisConfig Redis 配置
@@ -115,10 +129,13 @@ func setDefaults() {
 	viper.SetDefault("server.write_timeout", "10s")
 	viper.SetDefault("server.shutdown_timeout", "30s")
 
-	// MaxMind
+	// MaxMind (向後相容)
 	viper.SetDefault("maxmind.db_path", "./data/GeoLite2-City.mmdb")
 	viper.SetDefault("maxmind.auto_update", false)
 	viper.SetDefault("maxmind.update_interval", "24h")
+
+	// GeoIP (多提供者配置)
+	viper.SetDefault("geoip.providers", []ProviderConfig{})
 
 	// Redis
 	viper.SetDefault("redis.host", "localhost")
@@ -166,7 +183,7 @@ func bindEnvVars() {
 	viper.BindEnv("server.write_timeout", "SERVER_WRITE_TIMEOUT")
 	viper.BindEnv("server.shutdown_timeout", "SERVER_SHUTDOWN_TIMEOUT")
 
-	// MaxMind
+	// MaxMind (向後相容)
 	viper.BindEnv("maxmind.db_path", "MAXMIND_DB_PATH")
 	viper.BindEnv("maxmind.auto_update", "MAXMIND_AUTO_UPDATE")
 	viper.BindEnv("maxmind.update_interval", "MAXMIND_UPDATE_INTERVAL")
@@ -212,8 +229,25 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid server port: %d", c.Server.Port)
 	}
 
-	if c.MaxMind.DBPath == "" {
-		return fmt.Errorf("maxmind db_path is required")
+	// 檢查至少有一個資料庫配置（支援向後相容和新格式）
+	hasLegacyDB := c.MaxMind.DBPath != ""
+	hasNewDB := len(c.GeoIP.Providers) > 0
+
+	if !hasLegacyDB && !hasNewDB {
+		return fmt.Errorf("at least one IP database is required (maxmind.db_path or geoip.providers)")
+	}
+
+	// 驗證新格式的提供者配置
+	for i, provider := range c.GeoIP.Providers {
+		if provider.Type != "maxmind" && provider.Type != "ipip" {
+			return fmt.Errorf("invalid provider type at index %d: %s (must be 'maxmind' or 'ipip')", i, provider.Type)
+		}
+		if provider.DBPath == "" {
+			return fmt.Errorf("provider at index %d: db_path is required", i)
+		}
+		if provider.Region != "" && provider.Region != "cn" && provider.Region != "global" && provider.Region != "all" {
+			return fmt.Errorf("invalid region at index %d: %s (must be 'cn', 'global', or 'all')", i, provider.Region)
+		}
 	}
 
 	if c.Batch.MaxSize <= 0 || c.Batch.MaxSize > 1000 {

@@ -17,7 +17,7 @@ import (
 type IPHandler struct {
 	service      service.IPService
 	cache        repository.CacheRepository
-	maxmind      repository.MaxMindRepository
+	geoip        repository.GeoIPRepository
 	logger       zerolog.Logger
 	batchMaxSize int
 }
@@ -26,14 +26,14 @@ type IPHandler struct {
 func NewIPHandler(
 	service service.IPService,
 	cache repository.CacheRepository,
-	maxmind repository.MaxMindRepository,
+	geoip repository.GeoIPRepository,
 	logger zerolog.Logger,
 	batchMaxSize int,
 ) *IPHandler {
 	return &IPHandler{
 		service:      service,
 		cache:        cache,
-		maxmind:      maxmind,
+		geoip:        geoip,
 		logger:       logger,
 		batchMaxSize: batchMaxSize,
 	}
@@ -59,6 +59,50 @@ func (h *IPHandler) HandleIPLookup(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+// HandleIPLookupByProvider 處理使用指定提供者查詢 IP
+// @Summary 使用指定的資料庫提供者查詢 IP
+// @Tags IP
+// @Accept json
+// @Produce json
+// @Param ip path string true "IP 地址"
+// @Param provider query string true "提供者名稱 (maxmind, ipip)"
+// @Success 200 {object} model.IPInfo
+// @Failure 400 {object} model.ErrorResponse
+// @Failure 404 {object} model.ErrorResponse
+// @Router /api/v1/ip/{ip}/provider [get]
+func (h *IPHandler) HandleIPLookupByProvider(c *gin.Context) {
+	ip := c.Param("ip")
+	provider := c.Query("provider")
+
+	if provider == "" {
+		h.respondError(c, http.StatusBadRequest, "INVALID_REQUEST", "provider parameter is required")
+		return
+	}
+
+	result, err := h.service.LookupIPByProvider(c.Request.Context(), ip, provider)
+	if err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+// HandleGetProviders 取得所有可用的提供者
+// @Summary 列出所有可用的資料庫提供者
+// @Tags System
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/providers [get]
+func (h *IPHandler) HandleGetProviders(c *gin.Context) {
+	providers := h.service.GetAvailableProviders()
+
+	c.JSON(http.StatusOK, gin.H{
+		"providers": providers,
+		"count":     len(providers),
+	})
 }
 
 // HandleBatchLookup 處理批次 IP 查詢
@@ -115,7 +159,7 @@ func (h *IPHandler) HandleHealth(c *gin.Context) {
 	}
 
 	// 檢查 MaxMind DB（嘗試查詢一個 IP）
-	if _, err := h.maxmind.LookupCountry("8.8.8.8"); err != nil {
+	if _, err := h.geoip.LookupCountry("8.8.8.8"); err != nil {
 		services["maxmind"] = "unhealthy: " + err.Error()
 	} else {
 		services["maxmind"] = "healthy"

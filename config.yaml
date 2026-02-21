@@ -1,0 +1,35 @@
+server:
+  port: 8080
+
+# 多提供者配置
+geoip:
+  providers:
+    # IPIP.NET - 中國地區優先
+    - type: ipip
+      db_path: ./data/ipipfree.ipdb
+      priority: 1
+      region: cn
+
+    # MaxMind - 海外地區優先
+    - type: maxmind
+      db_path: ./data/GeoLite2-City.mmdb
+      priority: 1
+      region: global
+
+redis:
+  host: localhost
+  port: 6379
+
+cache:
+  enabled: true
+  ttl: 24h
+
+rate_limit:
+  enabled: false
+
+batch:
+  max_size: 100
+
+log:
+  level: info
+  format: console
