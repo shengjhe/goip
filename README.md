@@ -5,11 +5,14 @@
 ## 特色
 
 - 🚀 **高效能**: Redis 分散式快取 + 本地快取雙層架構
-- 🌐 **多資料庫支援**: 整合 MaxMind GeoLite2 與 IPIP.NET
+- 🌐 **多資料庫支援**: 整合 MaxMind GeoLite2、IPIP.NET 及外部 API
+- 🌍 **外部 API 整合**: 支援 ip-api.com、ipinfo.io、ipapi.co
 - 🎯 **智能路由**: 中國大陸 IP 使用 IPIP，其他地區使用 MaxMind
+- 🔄 **智能 Fallback**: 本地資料庫無城市資訊時自動切換至其他 provider
 - 🏙️ **詳細資訊**: 支援國家、城市、郵遞區號、經緯度、時區等完整地理資訊
 - 🔒 **限流保護**: Redis 實現的分散式限流
 - 📊 **批次查詢**: 支援批次 IP 查詢，使用 Pipeline 優化
+- 🗑️ **緩存管理**: 支援啟動時自動清空 DNS 緩存
 - 🐳 **容器化**: Docker Compose 一鍵部署
 - 📈 **可監控**: 支援健康檢查和統計 API
 
@@ -21,6 +24,7 @@
 - **IP 資料庫**:
   - MaxMind GeoLite2 City (全球覆蓋，含經緯度)
   - IPIP.NET 免費版 (中國地區詳細城市資訊)
+  - 外部 API（選用）: ip-api.com, ipinfo.io, ipapi.co
 - **日誌**: Zerolog
 - **配置**: Viper
 
@@ -437,25 +441,29 @@ log:
 | SERVER_PORT | 8080 | HTTP 服務端口 |
 | REDIS_HOST | redis | Redis 主機位址 |
 | REDIS_PORT | 6379 | Redis 端口 |
-| MAXMIND_DB_PATH | ./data/GeoLite2-City.mmdb | MaxMind 資料庫路徑 |
+| MAXMIND_DB_PATH | ./data/GeoLite2-City.mmdb | MaxMind 資料庫路徑（向後相容） |
 | CACHE_TTL | 24h | 快取過期時間 |
 | RATE_LIMIT_RPM | 100 | 每分鐘請求限制 |
 | LOG_LEVEL | info | 日誌級別 |
+| FLUSH_DNS | false | 啟動時清空 DNS 緩存（true/false） |
 
 完整架構設計請參考 [docs/DESIGN.md](docs/DESIGN.md)。
 
 ## 資料庫特性對比
 
-| 特性 | MaxMind GeoLite2 | IPIP.NET 免費版 |
-|------|-----------------|----------------|
-| **覆蓋範圍** | 全球 | 全球 |
-| **中國地區準確性** | 中等 | 高 |
-| **城市資訊** | 英文 + 部分中文 | 中文（含省份） |
-| **經緯度** | ✅ 有 | ❌ 無（付費版有） |
-| **時區** | ✅ 有 | ❌ 無 |
-| **ISO 國碼** | ✅ 有 | ❌ 無 |
-| **更新頻率** | 每週二 | 不定期 |
-| **資料庫大小** | ~70MB | ~3.5MB |
+| 特性 | MaxMind GeoLite2 | IPIP.NET 免費版 | 外部 API (ip-api) |
+|------|-----------------|----------------|------------------|
+| **類型** | 本地資料庫 | 本地資料庫 | HTTP API |
+| **覆蓋範圍** | 全球 | 全球 | 全球 |
+| **中國地區準確性** | 中等 | 高 | 中等 |
+| **城市資訊** | 英文 + 部分中文 | 中文（含省份） | 英文 |
+| **經緯度** | ✅ 有 | ❌ 無（付費版有） | ✅ 有 |
+| **時區** | ✅ 有 | ❌ 無 | ✅ 有 |
+| **ISO 國碼** | ✅ 有 | ❌ 無 | ✅ 有 |
+| **更新頻率** | 每週二 | 不定期 | 即時 |
+| **查詢速度** | ~1ms | ~1ms | ~300-500ms |
+| **使用限制** | 無 | 無 | 45 req/min（免費） |
+| **資料庫大小** | ~70MB | ~3.5MB | N/A |
 
 ### 使用建議
 
@@ -463,6 +471,8 @@ log:
 - **只需中國地區查詢** → 配置僅使用 IPIP
 - **需要精確經緯度** → 使用 `/provider?provider=maxmind` 指定 MaxMind
 - **需要中文省份+城市** → 中國 IP 會自動使用 IPIP
+- **本地資料庫無城市資訊時** → 啟用外部 API 作為 fallback（會消耗 API 配額）
+- **指定查詢外部 API** → 使用 `/provider?provider=ip-api`
 
 ### 資料庫維護
 

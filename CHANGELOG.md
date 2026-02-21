@@ -12,10 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 新增 IPIP.NET 資料庫整合
   - 新增統一的 GeoIPRepository 介面
   - 新增 MultiProviderRepository 智能路由管理器
+- 🌍 外部 API 整合
+  - 新增 ExternalAPIRepository 支援外部 IP 查詢服務
+  - 支援 ip-api.com（免費，45 req/min）
+  - 支援 ipinfo.io（免費，50k req/month）
+  - 支援 ipapi.co（免費，1k req/day）
 - 🎯 智能路由功能
   - 自動識別 IP 歸屬國家
   - 中國大陸 IP 優先使用 IPIP（中文城市資訊詳細）
   - 其他國家（含台港澳）優先使用 MaxMind（準確性高）
+  - **智能 Fallback 機制**：本地資料庫無城市資訊時自動嘗試其他 provider
+- 🗑️ 緩存管理功能
+  - 新增 FLUSH_DNS 環境變數，啟動時可清空所有 DNS 緩存
+  - 使用 Redis SCAN 批次刪除，避免阻塞
 - 📋 API 端點擴充
   - `/api/v1/ip/:ip/provider?provider=xxx` - 指定資料庫查詢
   - `/api/v1/providers` - 列出可用的資料庫提供者
@@ -29,10 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - 🔄 配置結構調整
   - 支援多提供者配置（`geoip.providers`）
+  - 支援外部 API provider 類型（ip-api, ipinfo, ipapi.co）
+  - 外部 API 不需要 db_path 欄位
   - 保留向後相容的單一 MaxMind 配置
 - 🏗️ 架構重構
   - Repository 層採用統一介面
   - Service 層透過 MultiProviderRepository 管理多資料庫
+  - 智能切換邏輯優化：優先檢查城市資訊，無資料時自動 fallback
 - 📊 回應格式優化
   - `continent` 和 `location` 改為指標類型
   - 使用 `omitempty` 標籤避免空物件

@@ -238,13 +238,25 @@ func (c *Config) Validate() error {
 	}
 
 	// 驗證新格式的提供者配置
+	validTypes := map[string]bool{
+		"maxmind":   true,
+		"ipip":      true,
+		"ip-api":    true,
+		"ipinfo":    true,
+		"ipapi.co":  true,
+	}
+
 	for i, provider := range c.GeoIP.Providers {
-		if provider.Type != "maxmind" && provider.Type != "ipip" {
-			return fmt.Errorf("invalid provider type at index %d: %s (must be 'maxmind' or 'ipip')", i, provider.Type)
+		if !validTypes[provider.Type] {
+			return fmt.Errorf("invalid provider type at index %d: %s (must be 'maxmind', 'ipip', 'ip-api', 'ipinfo', or 'ipapi.co')", i, provider.Type)
 		}
-		if provider.DBPath == "" {
-			return fmt.Errorf("provider at index %d: db_path is required", i)
+
+		// 本地資料庫需要 db_path，外部 API 不需要
+		isLocalDB := provider.Type == "maxmind" || provider.Type == "ipip"
+		if isLocalDB && provider.DBPath == "" {
+			return fmt.Errorf("provider at index %d: db_path is required for type '%s'", i, provider.Type)
 		}
+
 		if provider.Region != "" && provider.Region != "cn" && provider.Region != "global" && provider.Region != "all" {
 			return fmt.Errorf("invalid region at index %d: %s (must be 'cn', 'global', or 'all')", i, provider.Region)
 		}

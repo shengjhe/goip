@@ -20,6 +20,8 @@ services:
       - RATE_LIMIT_RPH=5000
       - LOG_LEVEL=info
       - LOG_FORMAT=console
+      # 啟動時清空 DNS 緩存（預設關閉）
+      - FLUSH_DNS=${FLUSH_DNS:-false}
     volumes:
       # 掛載資料目錄（包含 MaxMind 和 IPIP 資料庫）
       - ../../data:/app/data:ro

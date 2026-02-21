@@ -54,6 +54,15 @@ func main() {
 		logger.Warn().Err(err).Msg("Redis connection failed, cache will be disabled")
 	} else {
 		logger.Info().Str("host", cfg.Redis.Host).Int("port", cfg.Redis.Port).Msg("Redis connected")
+
+		// 檢查是否需要清空緩存
+		if os.Getenv("FLUSH_DNS") == "true" {
+			if err := flushDNSCache(ctx, redisClient, logger); err != nil {
+				logger.Warn().Err(err).Msg("Failed to flush DNS cache")
+			} else {
+				logger.Info().Msg("DNS cache flushed successfully")
+			}
+		}
 	}
 
 	// 初始化 Cache Repository
@@ -97,6 +106,36 @@ func main() {
 
 	// 優雅關閉
 	gracefulShutdown(srv, cfg.Server.ShutdownTimeout, logger)
+}
+
+// flushDNSCache 清空 DNS 緩存
+func flushDNSCache(ctx context.Context, redisClient *redis.Client, logger zerolog.Logger) error {
+	// 掃描所有 goip: 開頭的 key
+	var cursor uint64
+	var deletedCount int64
+
+	for {
+		keys, newCursor, err := redisClient.Scan(ctx, cursor, "goip:*", 100).Result()
+		if err != nil {
+			return fmt.Errorf("failed to scan keys: %w", err)
+		}
+
+		if len(keys) > 0 {
+			deleted, err := redisClient.Del(ctx, keys...).Result()
+			if err != nil {
+				return fmt.Errorf("failed to delete keys: %w", err)
+			}
+			deletedCount += deleted
+		}
+
+		cursor = newCursor
+		if cursor == 0 {
+			break
+		}
+	}
+
+	logger.Info().Int64("deleted_keys", deletedCount).Msg("Flushed DNS cache")
+	return nil
 }
 
 // initLogger 初始化 Logger
@@ -268,6 +307,17 @@ func initMultiProviderRepository(providers []config.ProviderConfig, logger zerol
 				Int("priority", providerCfg.Priority).
 				Str("region", providerCfg.Region).
 				Msg("IPIP DB loaded")
+
+		case "ip-api", "ipinfo", "ipapi.co":
+			geoipRepo, err = repository.NewExternalAPIRepository(repository.ExternalAPIType(providerCfg.Type))
+			if err != nil {
+				return nil, fmt.Errorf("failed to initialize external API provider %d: %w", i, err)
+			}
+			logger.Info().
+				Str("type", providerCfg.Type).
+				Int("priority", providerCfg.Priority).
+				Str("region", providerCfg.Region).
+				Msg("External API provider loaded")
 
 		default:
 			return nil, fmt.Errorf("unknown provider type: %s", providerCfg.Type)
