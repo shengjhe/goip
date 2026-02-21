@@ -53,9 +53,12 @@ jobs:
       continue-on-error: true
 
   build:
-    name: Build Docker Image
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      contents: read
+      packages: write
 
     steps:
     - name: Checkout code
@@ -64,53 +67,37 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build Docker image
-      run: |
-        chmod +x ./build/docker-build.sh
-        ./build/docker-build.sh -n ${{ env.DOCKER_IMAGE }} -v ${{ env.DOCKER_TAG }}
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Start Redis for testing
-      run: |
-        docker run -d \
-          --name redis-test \
-          -p 6379:6379 \
-          redis:7-alpine
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha
+          type=raw,value=latest,enable={{is_default_branch}}
 
-    - name: Wait for Redis to be ready
-      run: |
-        timeout 30 bash -c 'until docker exec redis-test redis-cli ping | grep -q PONG; do sleep 1; done'
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./build/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
-    - name: Download MaxMind test database
-      run: |
-        # 建立測試用的空資料目錄（生產環境需要真實的 MaxMind 資料庫）
-        # 這裡只是為了驗證 Docker 映像建置正確，實際功能測試需要真實資料庫
-        mkdir -p test-data
-        echo "Note: Skipping functional tests - MaxMind database required for full testing"
-        echo "Docker image built successfully!"
-
-    - name: Verify Docker image
-      run: |
-        # 驗證映像存在
-        docker images | grep ${{ env.DOCKER_IMAGE }}
-
-        # 檢查映像元數據
-        docker inspect ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }} > /dev/null
-
-        echo "Docker image verification passed!"
-
-    - name: Show service logs on failure
-      if: failure()
-      run: |
-        echo "=== GoIP Logs ==="
-        docker logs goip-test || true
-        echo "=== Redis Logs ==="
-        docker logs redis-test || true
-
-    - name: Cleanup
-      if: always()
-      run: |
-        docker stop goip-test redis-test || true
-        docker rm goip-test redis-test || true
 
   lint:
     name: Run Linters

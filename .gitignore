@@ -55,7 +55,9 @@ data/*.ipdb
 
 # Compiled binary
 server
-goip
+/goip
+# 但不要忽略 deployments/goip/ 目錄
+!/deployments/goip/
 
 # OS specific
 .DS_Store

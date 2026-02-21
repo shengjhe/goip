@@ -98,7 +98,27 @@ cp config.yaml.example config.yaml
 
 ### 使用 Docker Compose 部署（推薦）
 
-**方式一：使用 Makefile**
+#### 方式一：使用 GitHub Container Registry（最簡單）
+
+```bash
+# 1. 拉取最新 image
+docker pull ghcr.io/shengjhe/goip:latest
+
+# 2. 啟動 Redis
+cd deployments/redis && ./start.sh
+
+# 3. 啟動 GoIP（會自動使用 ghcr.io 的 image）
+cd ../goip && ./start.sh
+```
+
+**優點**：
+- ✅ 無需本地建置，節省時間
+- ✅ 每次 push 自動更新 image
+- ✅ 支援多架構（amd64/arm64）
+
+#### 方式二：本地建置
+
+**使用 Makefile**
 ```bash
 # 一鍵建置並部署
 make full-deploy
@@ -108,21 +128,19 @@ make docker-build      # 建置 GoIP Docker 映像
 make docker-up         # 啟動所有服務（Redis + GoIP）
 ```
 
-**方式二：使用啟動腳本**
+**使用啟動腳本**
 ```bash
 # 1. 建置 Docker 映像
 ./build/docker-build.sh
 
 # 2. 啟動 Redis
-cd deployments/redis
-./start.sh
+cd deployments/redis && ./start.sh
 
 # 3. 啟動 GoIP
-cd ../goip
-./start.sh
+cd ../goip && ./start.sh
 ```
 
-**方式三：直接使用 docker-compose**
+**直接使用 docker-compose**
 ```bash
 # 啟動 Redis
 docker-compose -f deployments/redis/docker-compose.yml up -d
