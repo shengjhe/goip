@@ -64,6 +64,8 @@ func (s *ipService) LookupIP(ctx context.Context, ip string) (*model.IPInfo, err
 	if err == nil {
 		atomic.AddUint64(&s.stats.cacheHits, 1)
 		s.recordQueryTime(startTime)
+		// 標記資料來源為 cache
+		result.Source = "cache"
 		return result, nil
 	}
 
@@ -73,11 +75,19 @@ func (s *ipService) LookupIP(ctx context.Context, ip string) (*model.IPInfo, err
 	}
 	atomic.AddUint64(&s.stats.cacheMisses, 1)
 
-	// 3. 查詢 MaxMind DB
+	// 3. 查詢 GeoIP (DB or API)
 	result, err = s.geoip.LookupCountry(ip)
 	if err != nil {
 		atomic.AddUint64(&s.stats.totalErrors, 1)
 		return nil, err
+	}
+
+	// 標記資料來源：根據 provider 判斷是 db 還是 api
+	switch result.Provider {
+	case "ip-api", "ipinfo", "ipapi.co":
+		result.Source = "api"
+	default:
+		result.Source = "db"
 	}
 
 	// 記錄查詢時間
@@ -113,6 +123,11 @@ func (s *ipService) BatchLookup(ctx context.Context, ips []string) (*model.Batch
 		cachedResults = make(map[string]*model.IPInfo)
 	}
 
+	// 標記快取結果來源
+	for _, info := range cachedResults {
+		info.Source = "cache"
+	}
+
 	// 2. 收集未命中的 IP
 	var missedIPs []string
 	for _, ip := range ips {
@@ -126,6 +141,16 @@ func (s *ipService) BatchLookup(ctx context.Context, ips []string) (*model.Batch
 
 	// 3. 並行查詢 MaxMind DB（未命中的 IP）
 	dbResults := s.parallelLookup(ctx, missedIPs)
+
+	// 標記 DB/API 結果來源
+	for _, info := range dbResults {
+		switch info.Provider {
+		case "ip-api", "ipinfo", "ipapi.co":
+			info.Source = "api"
+		default:
+			info.Source = "db"
+		}
+	}
 
 	// 4. 批次寫入快取
 	if len(dbResults) > 0 {
@@ -244,6 +269,14 @@ func (s *ipService) LookupIPByProvider(ctx context.Context, ip string, provider 
 			atomic.AddUint64(&s.stats.totalErrors, 1)
 			s.logger.Error().Err(err).Str("ip", ip).Str("provider", provider).Msg("Provider lookup failed")
 			return nil, err
+		}
+
+		// 標記資料來源：指定 provider 時直接查詢，不使用快取
+		switch provider {
+		case "ip-api", "ipinfo", "ipapi.co":
+			result.Source = "api"
+		default:
+			result.Source = "db"
 		}
 
 		// 記錄查詢時間

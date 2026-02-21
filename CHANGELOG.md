@@ -28,9 +28,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 📋 API 端點擴充
   - `/api/v1/ip/:ip/provider?provider=xxx` - 指定資料庫查詢
   - `/api/v1/providers` - 列出可用的資料庫提供者
+  - `/healthz` 和 `/health` - 簡化的健康檢查端點
 - 📝 統一回應格式
   - 必填欄位：`ip`, `country`, `city`, `provider`
   - 選填欄位：`continent`, `location`（只在有資料時出現）
+  - 新增 `source` 欄位：標記資料來源（cache / db / api）
+- 📊 日誌增強功能
+  - 新增 JSON 格式日誌輸出（`LOG_FORMAT=json`）
+  - 新增 Request ID 追蹤，request/response 日誌可對應
+  - 新增 `source` 和 `provider` 欄位到 response 日誌
+  - 優化日誌欄位：使用 `latency_ms`（整數）、`client_ip`（明確語意）
+  - 自動過濾 healthcheck 請求日誌，減少噪音
 - 📚 文件更新
   - 新增 CLAUDE.md 專案開發指南
   - 新增 docs/ 目錄存放技術文件
@@ -41,13 +49,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 支援外部 API provider 類型（ip-api, ipinfo, ipapi.co）
   - 外部 API 不需要 db_path 欄位
   - 保留向後相容的單一 MaxMind 配置
+  - 預設日誌格式改為 JSON
+  - FLUSH_DNS 預設值改為 true（啟動時自動清除快取）
 - 🏗️ 架構重構
   - Repository 層採用統一介面
   - Service 層透過 MultiProviderRepository 管理多資料庫
   - 智能切換邏輯優化：優先檢查城市資訊，無資料時自動 fallback
+  - Handler 層將查詢結果的 source 和 provider 存入 gin context
 - 📊 回應格式優化
   - `continent` 和 `location` 改為指標類型
   - 使用 `omitempty` 標籤避免空物件
+- 🔧 健康檢查優化
+  - 改用 `/healthz` 端點，返回簡單的 "OK" 字串
+  - 使用 `wget -O /dev/null` 避免 404 錯誤
 
 ### Fixed
 - 🐛 修正台灣 IP 被誤判為中國的問題

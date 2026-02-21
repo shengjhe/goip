@@ -48,4 +48,4 @@ batch:
 
 log:
   level: info
-  format: console
+  format: json  # json 或 console

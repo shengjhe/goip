@@ -19,9 +19,9 @@ services:
       - RATE_LIMIT_RPM=100
       - RATE_LIMIT_RPH=5000
       - LOG_LEVEL=info
-      - LOG_FORMAT=console
-      # 啟動時清空 DNS 緩存（預設關閉）
-      - FLUSH_DNS=${FLUSH_DNS:-false}
+      - LOG_FORMAT=json
+      # 啟動時清空 DNS 緩存（預設啟用）
+      - FLUSH_DNS=${FLUSH_DNS:-true}
     volumes:
       # 掛載資料目錄（包含 MaxMind 和 IPIP 資料庫）
       - ../../data:/app/data:ro
@@ -31,7 +31,7 @@ services:
       - goip-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/v1/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3

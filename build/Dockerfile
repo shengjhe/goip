@@ -50,7 +50,7 @@ EXPOSE 8080
 
 # 健康檢查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget -q --spider http://localhost:8080/api/v1/health || exit 1
+    CMD wget -q -O /dev/null http://localhost:8080/healthz || exit 1
 
 # 運行服務
 ENTRYPOINT ["/app/goip"]

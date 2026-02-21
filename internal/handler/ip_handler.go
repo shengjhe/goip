@@ -58,6 +58,10 @@ func (h *IPHandler) HandleIPLookup(c *gin.Context) {
 		return
 	}
 
+	// 將資料來源存入 context，供 logger middleware 使用
+	c.Set("source", result.Source)
+	c.Set("provider", result.Provider)
+
 	c.JSON(http.StatusOK, result)
 }
 
@@ -86,6 +90,10 @@ func (h *IPHandler) HandleIPLookupByProvider(c *gin.Context) {
 		h.handleError(c, err)
 		return
 	}
+
+	// 將資料來源存入 context，供 logger middleware 使用
+	c.Set("source", result.Source)
+	c.Set("provider", result.Provider)
 
 	c.JSON(http.StatusOK, result)
 }

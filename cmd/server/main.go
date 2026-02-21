@@ -150,6 +150,10 @@ func initLogger(cfg config.LogConfig) zerolog.Logger {
 	// 設定輸出格式
 	if cfg.Format == "console" {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
+	} else {
+		// JSON 格式（預設）
+		zerolog.TimeFieldFormat = time.RFC3339
+		log.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger()
 	}
 
 	return log.Logger
@@ -202,6 +206,14 @@ func setupRouter(
 		)
 		router.Use(rateLimiter.Limit())
 	}
+
+	// 簡單的健康檢查端點（不記錄日誌）
+	router.GET("/healthz", func(c *gin.Context) {
+		c.String(http.StatusOK, "OK")
+	})
+	router.GET("/health", func(c *gin.Context) {
+		c.String(http.StatusOK, "OK")
+	})
 
 	// API 路由群組
 	v1 := router.Group("/api/v1")

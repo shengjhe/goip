@@ -4,14 +4,15 @@ import "time"
 
 // IPInfo 表示 IP 查詢結果
 type IPInfo struct {
-	IP          string        `json:"ip"`                    // 必填：IP 地址
-	Country     CountryInfo   `json:"country"`               // 必填：國家資訊
-	City        CityInfo      `json:"city"`                  // 必填：城市資訊
-	Provider    string        `json:"provider"`              // 必填：資料來源（maxmind, ipip）
-	Continent   *ContinentInfo `json:"continent,omitempty"`  // 選填：大洲資訊（只在有資料時顯示）
-	Location    *LocationInfo `json:"location,omitempty"`    // 選填：經緯度資訊（只在有資料時顯示）
-	QueryTimeMs int64        `json:"query_time_ms"`         // 查詢耗時
-	CachedAt    *time.Time   `json:"cached_at,omitempty"`   // 快取時間
+	IP          string         `json:"ip"`                    // 必填：IP 地址
+	Country     CountryInfo    `json:"country"`               // 必填：國家資訊
+	City        CityInfo       `json:"city"`                  // 必填：城市資訊
+	Provider    string         `json:"provider"`              // 必填：資料來源（maxmind, ipip, ip-api, etc.）
+	Source      string         `json:"source,omitempty"`      // 資料來源：cache / db / api
+	Continent   *ContinentInfo `json:"continent,omitempty"`   // 選填：大洲資訊（只在有資料時顯示）
+	Location    *LocationInfo  `json:"location,omitempty"`    // 選填：經緯度資訊（只在有資料時顯示）
+	QueryTimeMs int64          `json:"query_time_ms"`         // 查詢耗時
+	CachedAt    *time.Time     `json:"cached_at,omitempty"`   // 快取時間
 }
 
 // CountryInfo 國家資訊
