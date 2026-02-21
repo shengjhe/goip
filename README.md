@@ -101,6 +101,31 @@ docker-compose -f deployments/goip/docker-compose.yml up -d
 
 服務將在 `http://localhost:8080` 啟動。
 
+### 緩存管理
+
+**啟動時清空 DNS 緩存**
+
+當需要強制刷新所有 IP 查詢緩存時，可以設置 `FLUSH_DNS=true` 環境變數：
+
+```bash
+# Docker Compose 啟動時清空緩存
+FLUSH_DNS=true docker-compose -f deployments/goip/docker-compose.yml up -d
+
+# 查看日誌確認緩存已清空
+docker logs goip | grep "Flushed DNS cache"
+# 輸出: INF Flushed DNS cache deleted_keys=13
+```
+
+**使用場景**：
+- IP 資料庫更新後，需要重新查詢所有 IP
+- 測試時需要清除舊的測試資料
+- 切換 provider 配置後，確保使用新的資料來源
+
+**注意事項**：
+- 此功能使用 Redis SCAN 命令批次刪除，不會阻塞服務
+- 只刪除 `goip:*` 前綴的緩存 key，不影響其他應用
+- 預設關閉（`FLUSH_DNS=false`），避免意外清空生產環境緩存
+
 ### 本地開發運行
 
 ```bash
@@ -129,6 +154,7 @@ GET /api/v1/ip/{ip}
 系統會自動選擇最佳資料庫：
 - **中國大陸 IP** → 使用 IPIP（中文城市資訊詳細）
 - **其他國家** → 使用 MaxMind（全球覆蓋，含經緯度）
+- **智能 Fallback** → 若本地資料庫無城市資訊，自動嘗試其他 provider（含外部 API）
 
 **範例 1：海外 IP (使用 MaxMind)**
 ```bash
@@ -188,10 +214,10 @@ curl http://localhost:8080/api/v1/ip/42.120.160.1
 ### 指定資料庫查詢
 
 ```bash
-GET /api/v1/ip/{ip}/provider?provider={maxmind|ipip}
+GET /api/v1/ip/{ip}/provider?provider={maxmind|ipip|ip-api|ipinfo|ipapi.co}
 ```
 
-強制使用特定資料庫進行查詢。
+強制使用特定資料庫或外部 API 進行查詢。
 
 **範例：使用 MaxMind 查詢中國 IP（獲取經緯度）**
 ```bash
@@ -225,17 +251,84 @@ curl "http://localhost:8080/api/v1/ip/42.120.160.1/provider?provider=maxmind"
 }
 ```
 
+**範例：使用外部 API 查詢（ip-api）**
+```bash
+curl "http://localhost:8080/api/v1/ip/119.31.184.26/provider?provider=ip-api"
+```
+
+```json
+{
+  "ip": "119.31.184.26",
+  "country": {
+    "iso_code": "TW",
+    "name": "Taiwan",
+    "name_zh": ""
+  },
+  "city": {
+    "name": "Neihu District",
+    "name_zh": "",
+    "postal_code": ""
+  },
+  "provider": "ip-api",
+  "location": {
+    "latitude": 25.0707,
+    "longitude": 121.582,
+    "time_zone": "Asia/Taipei"
+  },
+  "query_time_ms": 515
+}
+```
+
+**範例：智能 Fallback（本地資料庫無城市→自動切換外部 API）**
+```bash
+# 假設 MaxMind 對此台灣 IP 沒有城市資訊
+# 系統會自動嘗試 IPIP → ip-api（如已啟用）
+curl http://localhost:8080/api/v1/ip/119.31.184.26
+```
+
+```json
+{
+  "ip": "119.31.184.26",
+  "country": {
+    "iso_code": "TW",
+    "name": "Taiwan",
+    "name_zh": ""
+  },
+  "city": {
+    "name": "Neihu District",
+    "name_zh": "",
+    "postal_code": ""
+  },
+  "provider": "ip-api",
+  "location": {
+    "latitude": 25.0707,
+    "longitude": 121.582,
+    "time_zone": "Asia/Taipei"
+  },
+  "query_time_ms": 515
+}
+```
+> **注意**: `provider: "ip-api"` 表示經過智能 Fallback 後，最終由外部 API 提供資料
+
 ### 列出可用資料庫
 
 ```bash
 GET /api/v1/providers
 ```
 
-**回應:**
+**回應範例（僅本地資料庫）:**
 ```json
 {
   "count": 2,
   "providers": ["ipip", "maxmind"]
+}
+```
+
+**回應範例（含外部 API）:**
+```json
+{
+  "count": 3,
+  "providers": ["ipip", "maxmind", "ip-api"]
 }
 ```
 
@@ -245,7 +338,7 @@ GET /api/v1/providers
 - `ip` - IP 地址
 - `country` - 國家資訊
 - `city` - 城市資訊
-- `provider` - 資料來源（`maxmind` 或 `ipip`）
+- `provider` - 資料來源（`maxmind`、`ipip`、`ip-api`、`ipinfo`、`ipapi.co`）
 - `query_time_ms` - 查詢耗時
 
 **選填欄位**（只在有資料時出現）：
@@ -384,6 +477,21 @@ geoip:
       db_path: ./data/GeoLite2-City.mmdb
       priority: 1
       region: global          # 適用於海外地區
+
+    # 外部 API 提供者（選用，作為 fallback 或手動指定時使用）
+    # 注意：啟用後會在智能路由時作為 fallback，消耗 API 配額
+    # 建議：只在手動指定 provider 時使用，智能路由時關閉
+    # - type: ip-api        # 免費，45 req/min
+    #   priority: 10
+    #   region: all
+    #
+    # - type: ipinfo        # 免費，50k req/month
+    #   priority: 11
+    #   region: all
+    #
+    # - type: ipapi.co      # 免費，1k req/day
+    #   priority: 12
+    #   region: all
 
 # 向後相容：單一 MaxMind 資料庫配置
 # 如果 geoip.providers 未設定，則使用此配置
