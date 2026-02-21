@@ -1,6 +1,6 @@
 # 多階段建置
 # Stage 1: 建置階段
-FROM golang:1.23-alpine AS builder
+FROM golang:1.26-alpine AS builder
 
 # 安裝必要工具
 RUN apk add --no-cache git make
