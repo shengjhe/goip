@@ -1,9 +1,10 @@
 module github.com/axiom/goip
 
-go 1.26
+go 1.23.0
 
 require (
 	github.com/gin-gonic/gin v1.11.0
+	github.com/ipipdotnet/ipdb-go v1.3.3
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/rs/zerolog v1.34.0
@@ -25,7 +26,6 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
-	github.com/ipipdotnet/ipdb-go v1.3.3 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect

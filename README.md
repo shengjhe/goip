@@ -50,7 +50,7 @@ GoIP 是一個專為生產環境設計的 IP 地理位置查詢服務，整合�
 
 ## 技術棧
 
-- **語言**: Go 1.26+
+- **語言**: Go 1.23+
 - **Web 框架**: Gin
 - **快取**: Redis 7+
 - **IP 資料庫**:
@@ -65,7 +65,7 @@ GoIP 是一個專為生產環境設計的 IP 地理位置查詢服務，整合�
 ### 前置需求
 
 - Docker & Docker Compose（推薦）
-- 或 Go 1.26+ & Redis 7.0+
+- 或 Go 1.23+ & Redis 7.0+
 - IP 資料庫檔案（至少一個）：
   - MaxMind GeoLite2 City
   - IPIP.NET 免費版
