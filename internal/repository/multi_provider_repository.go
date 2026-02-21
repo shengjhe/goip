@@ -142,18 +142,6 @@ func (r *MultiProviderRepository) getProviderByType(providerType string) GeoIPRe
 	return nil
 }
 
-// getProvidersForRegion 取得指定區域的提供者
-func (r *MultiProviderRepository) getProvidersForRegion(region string) []ProviderInfo {
-	var result []ProviderInfo
-	for _, p := range r.providers {
-		if p.Region == region || p.Region == "all" || p.Region == "" {
-			result = append(result, p)
-		}
-	}
-	return result
-}
-
-
 // Close 關閉所有提供者的資料庫連接
 func (r *MultiProviderRepository) Close() error {
 	r.mu.Lock()

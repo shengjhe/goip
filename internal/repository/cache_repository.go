@@ -82,8 +82,9 @@ func (r *cacheRepository) MGet(ctx context.Context, ips []string) (map[string]*m
 	}
 
 	_, err := pipe.Exec(ctx)
+	// 忽略 redis.Nil 錯誤（部分鍵不存在是正常的）
 	if err != nil && err != redis.Nil {
-		// 忽略 redis.Nil 錯誤（部分鍵不存在是正常的）
+		return nil, err
 	}
 
 	// 解析結果
