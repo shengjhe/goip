@@ -2,7 +2,10 @@ version: '3.8'
 
 services:
   goip:
+    # 使用 GitHub Container Registry (public)
     image: ghcr.io/shengjhe/goip:latest
+    # 本地 image (開發用)
+    # image: goip:latest
     container_name: goip
     ports:
       - "8080:8080"

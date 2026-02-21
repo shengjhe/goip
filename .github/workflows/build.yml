@@ -7,7 +7,7 @@ on:
     branches: [ main, develop ]
 
 env:
-  GO_VERSION: '1.26'
+  GO_VERSION: '1.23'
   DOCKER_IMAGE: goip
   DOCKER_TAG: latest
 
@@ -93,6 +93,7 @@ jobs:
         context: .
         file: ./build/Dockerfile
         push: true
+        platforms: linux/amd64,linux/arm64
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha

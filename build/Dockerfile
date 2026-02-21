@@ -1,6 +1,7 @@
 # 多階段建置
 # Stage 1: 建置階段
-FROM golang:1.26-alpine AS builder
+# 注意: 使用 1.23-alpine 因為 Docker Hub 尚未提供 1.26-alpine
+FROM golang:1.23-alpine AS builder
 
 # 安裝必要工具
 RUN apk add --no-cache git make
@@ -17,8 +18,9 @@ RUN go mod download
 # 複製原始碼
 COPY . .
 
-# 建置二進制檔案
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+# 建置二進制檔案（支援多架構）
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build \
     -ldflags='-w -s -extldflags "-static"' \
     -o /build/bin/goip \
     ./cmd/server/main.go
