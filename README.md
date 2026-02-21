@@ -1,20 +1,52 @@
 # GoIP - IP 地理位置查詢服務
 
-支援多資料庫的高效能 IP 地理位置查詢 RESTful API 服務。
+[![Build Status](https://github.com/shengjhe/goip/workflows/Build%20and%20Test/badge.svg)](https://github.com/shengjhe/goip/actions)
+[![Go Report Card](https://goreportcard.com/badge/github.com/shengjhe/goip)](https://goreportcard.com/report/github.com/shengjhe/goip)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## 特色
+一個高效能、生產級的 IP 地理位置查詢 API 服務，支援多資料庫智能路由、分散式快取和完整的可觀測性。
 
+## 專案簡介
+
+GoIP 是一個專為生產環境設計的 IP 地理位置查詢服務，整合了多個 IP 資料庫提供者（MaxMind GeoLite2、IPIP.NET）和外部 API（ip-api.com、ipinfo.io、ipapi.co），提供準確、快速、可靠的地理位置資訊查詢。
+
+### 核心優勢
+
+- **智能資料源選擇**: 自動根據 IP 歸屬地選擇最佳資料庫（中國 IP 使用 IPIP，海外 IP 使用 MaxMind）
+- **高可用性**: 內建 Fallback 機制，當主資料源無資料時自動切換至備用資料源
+- **高效能**: 雙層快取架構（Redis + 本地快取）+ 批次查詢優化
+- **生產就緒**: 包含限流、健康檢查、結構化日誌、Request ID 追蹤等企業級功能
+- **完整可觀測性**: JSON 格式日誌、資料來源標記（cache/db/api）、效能指標
+
+### 適用場景
+
+- 電商平台：根據用戶 IP 自動切換地區、語言、貨幣
+- 廣告投放：精準定位用戶地理位置進行廣告投放
+- 安全防護：識別異常登入地點、檢測代理/VPN
+- 數據分析：用戶地理分佈統計、流量來源分析
+- 合規要求：GDPR、資料在地化等法規遵循
+
+## 特色功能
+
+### 效能與可靠性
 - 🚀 **高效能**: Redis 分散式快取 + 本地快取雙層架構
+- 🎯 **智能路由**: 自動根據 IP 歸屬地選擇最佳資料庫（中國 IP 使用 IPIP，海外 IP 使用 MaxMind）
+- 🔄 **智能 Fallback**: 本地資料庫無資料時自動切換至其他 provider，確保查詢成功率
+- ⚡ **批次查詢優化**: 支援批次 IP 查詢，使用 Redis Pipeline 大幅提升效能
+- 🔒 **限流保護**: Redis 實現的分散式限流，防止服務過載
+
+### 資料來源
 - 🌐 **多資料庫支援**: 整合 MaxMind GeoLite2、IPIP.NET 及外部 API
-- 🌍 **外部 API 整合**: 支援 ip-api.com、ipinfo.io、ipapi.co
-- 🎯 **智能路由**: 中國大陸 IP 使用 IPIP，其他地區使用 MaxMind
-- 🔄 **智能 Fallback**: 本地資料庫無城市資訊時自動切換至其他 provider
-- 🏙️ **詳細資訊**: 支援國家、城市、郵遞區號、經緯度、時區等完整地理資訊
-- 🔒 **限流保護**: Redis 實現的分散式限流
-- 📊 **批次查詢**: 支援批次 IP 查詢，使用 Pipeline 優化
-- 🗑️ **緩存管理**: 支援啟動時自動清空 DNS 緩存
-- 🐳 **容器化**: Docker Compose 一鍵部署
-- 📈 **可監控**: 支援健康檢查和統計 API
+- 🌍 **外部 API 整合**: 支援 ip-api.com、ipinfo.io、ipapi.co 作為 Fallback
+- 🏙️ **詳細資訊**: 支援國家、城市、郵遞區號、經緯度、時區、大陸等完整地理資訊
+- 🔍 **資料來源追蹤**: 每個查詢都標記資料來源（cache/db/api），便於分析和優化
+
+### 可觀測性與維運
+- 📊 **結構化日誌**: JSON 格式日誌，包含 Request ID、資料來源、效能指標
+- 🔗 **Request ID 追蹤**: Request/Response 日誌透過 UUID 關聯，便於 tracing
+- 📈 **監控就緒**: 支援健康檢查、統計 API、快取命中率等監控指標
+- 🗑️ **緩存管理**: 支援啟動時自動清空 DNS 緩存、單筆/批次快取清除
+- 🐳 **容器化**: Docker Compose 一鍵部署，支援水平擴展
 
 ## 技術棧
 
@@ -42,7 +74,7 @@
 
 1. Clone 專案
 ```bash
-git clone https://github.com/axiom/goip.git
+git clone https://github.com/shengjhe/goip.git
 cd goip
 ```
 
