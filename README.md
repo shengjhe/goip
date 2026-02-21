@@ -30,7 +30,9 @@
 
 - Docker & Docker Compose（推薦）
 - 或 Go 1.26+ & Redis 7.0+
-- MaxMind GeoLite2 資料庫
+- IP 資料庫檔案（至少一個）：
+  - MaxMind GeoLite2 City
+  - IPIP.NET 免費版
 
 ### 安裝
 
@@ -40,16 +42,22 @@ git clone https://github.com/axiom/goip.git
 cd goip
 ```
 
-2. 下載 MaxMind 資料庫
+2. 下載 IP 資料庫
+
+**MaxMind GeoLite2 City**（必需）
 - 註冊 [MaxMind](https://www.maxmind.com/en/geolite2/signup) 帳號
 - 下載 GeoLite2-City.mmdb
-- 放置到 `data/` 目錄
-- **資料庫更新**: MaxMind 每週二更新 GeoLite2 資料庫，建議定期更新以確保資料準確性
+- 放置到 `data/GeoLite2-City.mmdb`
+- **更新頻率**: 每週二更新
 
-3. 複製環境變數範例（可選）
+**IPIP.NET 免費版**（選用，提供中國地區詳細城市資訊）
+- 下載 [ipipfree.ipdb](https://www.ipip.net/product/client.html)
+- 放置到 `data/ipipfree.ipdb`
+
+3. 配置多資料庫（可選）
 ```bash
-cp .env.example .env
-# 根據需要編輯 .env
+cp config.yaml.example config.yaml
+# 編輯 config.yaml 設定資料庫路徑
 ```
 
 ### 使用 Docker Compose 部署（推薦）
@@ -108,45 +116,137 @@ go run cmd/server/main.go
 
 ## API 文檔
 
-### 查詢單一 IP
+### 智能路由查詢
 
 ```bash
 GET /api/v1/ip/{ip}
 ```
 
-**範例請求:**
+系統會自動選擇最佳資料庫：
+- **中國大陸 IP** → 使用 IPIP（中文城市資訊詳細）
+- **其他國家** → 使用 MaxMind（全球覆蓋，含經緯度）
+
+**範例 1：海外 IP (使用 MaxMind)**
 ```bash
-curl http://localhost:8080/api/v1/ip/140.82.121.3
+curl http://localhost:8080/api/v1/ip/8.8.8.8
 ```
 
-**範例回應:**
 ```json
 {
-  "ip": "140.82.121.3",
+  "ip": "8.8.8.8",
   "country": {
-    "iso_code": "DE",
-    "name": "Germany",
-    "name_zh": "德国"
-  },
-  "continent": {
-    "code": "EU",
-    "name": "Europe"
+    "iso_code": "US",
+    "name": "United States",
+    "name_zh": "美国"
   },
   "city": {
-    "name": "Frankfurt am Main",
-    "name_zh": "法兰克福",
-    "postal_code": "60313"
+    "name": "",
+    "name_zh": "",
+    "postal_code": ""
+  },
+  "provider": "maxmind",
+  "continent": {
+    "code": "NA",
+    "name": "North America"
   },
   "location": {
-    "latitude": 50.1169,
-    "longitude": 8.6837,
-    "time_zone": "Europe/Berlin"
+    "latitude": 37.751,
+    "longitude": -97.822,
+    "time_zone": "America/Chicago"
   },
   "query_time_ms": 1
 }
 ```
 
-**注意:** `city` 和 `location` 為可選欄位，某些 IP（如 CDN、Anycast IP）可能不包含這些資訊。
+**範例 2：中國 IP (使用 IPIP)**
+```bash
+curl http://localhost:8080/api/v1/ip/42.120.160.1
+```
+
+```json
+{
+  "ip": "42.120.160.1",
+  "country": {
+    "iso_code": "",
+    "name": "中国",
+    "name_zh": ""
+  },
+  "city": {
+    "name": "杭州",
+    "name_zh": "浙江杭州",
+    "postal_code": ""
+  },
+  "provider": "ipip",
+  "query_time_ms": 1
+}
+```
+
+### 指定資料庫查詢
+
+```bash
+GET /api/v1/ip/{ip}/provider?provider={maxmind|ipip}
+```
+
+強制使用特定資料庫進行查詢。
+
+**範例：使用 MaxMind 查詢中國 IP（獲取經緯度）**
+```bash
+curl "http://localhost:8080/api/v1/ip/42.120.160.1/provider?provider=maxmind"
+```
+
+```json
+{
+  "ip": "42.120.160.1",
+  "country": {
+    "iso_code": "CN",
+    "name": "China",
+    "name_zh": "中国"
+  },
+  "city": {
+    "name": "Hangzhou",
+    "name_zh": "杭州",
+    "postal_code": ""
+  },
+  "provider": "maxmind",
+  "continent": {
+    "code": "AS",
+    "name": "Asia"
+  },
+  "location": {
+    "latitude": 30.2943,
+    "longitude": 120.1663,
+    "time_zone": "Asia/Shanghai"
+  },
+  "query_time_ms": 2
+}
+```
+
+### 列出可用資料庫
+
+```bash
+GET /api/v1/providers
+```
+
+**回應:**
+```json
+{
+  "count": 2,
+  "providers": ["ipip", "maxmind"]
+}
+```
+
+### 回應格式說明
+
+**必填欄位**（總是存在）：
+- `ip` - IP 地址
+- `country` - 國家資訊
+- `city` - 城市資訊
+- `provider` - 資料來源（`maxmind` 或 `ipip`）
+- `query_time_ms` - 查詢耗時
+
+**選填欄位**（只在有資料時出現）：
+- `continent` - 大洲資訊
+- `location` - 經緯度和時區
 
 ### 批次查詢
 
@@ -159,7 +259,7 @@ Content-Type: application/json
 ```bash
 curl -X POST http://localhost:8080/api/v1/ip/batch \
   -H "Content-Type: application/json" \
-  -d '{"ips": ["140.82.121.3", "8.8.8.8", "140.112.1.1"]}'
+  -d '{"ips": ["8.8.8.8", "114.114.114.114", "42.120.160.1"]}'
 ```
 
 **範例回應:**
@@ -167,40 +267,58 @@ curl -X POST http://localhost:8080/api/v1/ip/batch \
 {
   "results": [
     {
-      "ip": "140.82.121.3",
-      "country": {
-        "iso_code": "DE",
-        "name": "Germany",
-        "name_zh": "德国"
-      },
-      "continent": {
-        "code": "EU",
-        "name": "Europe"
-      },
-      "city": {
-        "name": "Frankfurt am Main",
-        "name_zh": "法兰克福",
-        "postal_code": "60313"
-      },
-      "location": {
-        "latitude": 50.1169,
-        "longitude": 8.6837,
-        "time_zone": "Europe/Berlin"
-      },
-      "query_time_ms": 1
-    },
-    {
       "ip": "8.8.8.8",
       "country": {
         "iso_code": "US",
         "name": "United States",
         "name_zh": "美国"
       },
+      "city": {
+        "name": "",
+        "name_zh": "",
+        "postal_code": ""
+      },
+      "provider": "maxmind",
       "continent": {
         "code": "NA",
         "name": "North America"
       },
-      "query_time_ms": 0
+      "location": {
+        "latitude": 37.751,
+        "longitude": -97.822,
+        "time_zone": "America/Chicago"
+      },
+      "query_time_ms": 1
+    },
+    {
+      "ip": "114.114.114.114",
+      "country": {
+        "iso_code": "",
+        "name": "114DNS.COM",
+        "name_zh": ""
+      },
+      "city": {
+        "name": "",
+        "name_zh": "",
+        "postal_code": ""
+      },
+      "provider": "ipip",
+      "query_time_ms": 1
+    },
+    {
+      "ip": "42.120.160.1",
+      "country": {
+        "iso_code": "",
+        "name": "中国",
+        "name_zh": ""
+      },
+      "city": {
+        "name": "杭州",
+        "name_zh": "浙江杭州",
+        "postal_code": ""
+      },
+      "provider": "ipip",
+      "query_time_ms": 1
     }
   ],
   "total": 3,
@@ -324,17 +442,38 @@ log:
 | RATE_LIMIT_RPM | 100 | 每分鐘請求限制 |
 | LOG_LEVEL | info | 日誌級別 |
 
-完整架構設計請參考 [DESIGN.md](DESIGN.md)。
+完整架構設計請參考 [docs/DESIGN.md](docs/DESIGN.md)。
 
-### MaxMind 資料庫維護
+## 資料庫特性對比
 
-MaxMind GeoLite2 資料庫需要定期更新以確保資料準確性：
+| 特性 | MaxMind GeoLite2 | IPIP.NET 免費版 |
+|------|-----------------|----------------|
+| **覆蓋範圍** | 全球 | 全球 |
+| **中國地區準確性** | 中等 | 高 |
+| **城市資訊** | 英文 + 部分中文 | 中文（含省份） |
+| **經緯度** | ✅ 有 | ❌ 無（付費版有） |
+| **時區** | ✅ 有 | ❌ 無 |
+| **ISO 國碼** | ✅ 有 | ❌ 無 |
+| **更新頻率** | 每週二 | 不定期 |
+| **資料庫大小** | ~70MB | ~3.5MB |
 
-- **更新頻率**: MaxMind 每週二發布新版本
-- **檔案位置**: `data/GeoLite2-City.mmdb` (約 54MB)
-- **建議**: 每月至少更新一次資料庫
-- **下載方式**: 從 [MaxMind 官網](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data)下載最新版本
-- **熱更新**: 更新資料庫檔案後需重啟服務以載入新資料
+### 使用建議
+
+- **需要全球 IP 查詢 + 經緯度** → 使用智能路由（預設）
+- **只需中國地區查詢** → 配置僅使用 IPIP
+- **需要精確經緯度** → 使用 `/provider?provider=maxmind` 指定 MaxMind
+- **需要中文省份+城市** → 中國 IP 會自動使用 IPIP
+
+### 資料庫維護
+
+**MaxMind GeoLite2**
+- **更新頻率**: 每週二
+- **下載**: [MaxMind 官網](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data)
+- **建議**: 每月更新一次
+
+**IPIP.NET**
+- **更新頻率**: 不定期
+- **下載**: [IPIP 官網](https://www.ipip.net/product/client.html)
 
 ```bash
 # 更新資料庫後重啟服務
@@ -363,7 +502,7 @@ goip/
 │   └── middleware/     # 中間件
 ├── pkg/                # 可共享的函式庫
 ├── config/             # 配置管理
-├── data/               # MaxMind 資料庫檔案
+├── data/               # IP 資料庫檔案 (MaxMind, IPIP)
 ├── build/              # 建置腳本、Dockerfile 和編譯產物
 └── deployments/        # 部署配置（docker-compose）
     ├── goip/          # GoIP 服務部署
@@ -497,8 +636,15 @@ MIT License
 
 ## 參考資源
 
-- [設計文檔](DESIGN.md) - 完整架構設計
+### 文件
+- [CLAUDE.md](CLAUDE.md) - AI 開發指南
+- [設計文檔](docs/DESIGN.md) - 完整架構設計
+- [多資料庫指南](docs/MULTI_DB_GUIDE.md) - 多資料庫使用說明
+- [API 回應格式](docs/API_RESPONSE_FORMAT.md) - 詳細格式說明
 - [建置說明](build/README.md) - 建置和 Docker 映像
 - [部署說明](deployments/README.md) - Docker Compose 部署
+
+### 外部資源
 - [MaxMind GeoLite2](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data)
+- [IPIP.NET](https://www.ipip.net/product/client.html)
 - [Gin Framework](https://gin-gonic.com/)
